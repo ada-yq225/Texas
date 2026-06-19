@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>单机德州扑克</title>
+    <link rel="stylesheet" href="./styles.css?v=20260619-12" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="top-bar" aria-label="牌局概览">
+        <div class="brand-block">
+          <span class="eyebrow">Solo Hold'em</span>
+          <h1>单机德州扑克</h1>
+        </div>
+        <div class="metric-grid">
+          <div class="metric">
+            <span>手数</span>
+            <strong id="handNumber">1</strong>
+          </div>
+          <div class="metric">
+            <span>底池</span>
+            <strong id="pot">0</strong>
+          </div>
+          <div class="metric">
+            <span>本轮最高</span>
+            <strong id="currentBet">0</strong>
+          </div>
+          <div class="metric">
+            <span>全场盈亏</span>
+            <strong id="profit">0</strong>
+          </div>
+          <div class="metric">
+            <span>阶段</span>
+            <strong id="street">准备</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="session-panel" aria-label="牌局设置">
+        <label class="field">
+          <span>初始筹码</span>
+          <select id="stackSelect">
+            <option value="1000">1000</option>
+            <option value="2000" selected>2000</option>
+            <option value="5000">5000</option>
+            <option value="10000">10000</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>小盲 / 大盲</span>
+          <select id="blindSelect">
+            <option value="5/10">5 / 10</option>
+            <option value="10/20" selected>10 / 20</option>
+            <option value="25/50">25 / 50</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>人数</span>
+          <select id="playerCountSelect">
+            <option value="4" selected>4 人桌</option>
+            <option value="5">5 人桌</option>
+            <option value="6">6 人桌</option>
+            <option value="7">7 人桌</option>
+            <option value="8">8 人桌</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>游戏模式</span>
+          <select id="modeSelect">
+            <option value="normal" selected>正常模式</option>
+            <option value="study">教学模式：全明牌</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>All-in 发牌</span>
+          <select id="runTwiceSelect">
+            <option value="once" selected>发一次</option>
+            <option value="twice">发两次</option>
+          </select>
+        </label>
+        <button id="newSessionBtn">新牌局</button>
+        <button id="newHandBtn" class="primary">下一手牌</button>
+      </section>
+
+      <section class="poker-table" aria-label="德州扑克牌桌">
+        <div id="opponents" class="opponents"></div>
+
+        <div class="center-felt">
+          <div class="board-head">
+            <div>
+              <span class="eyebrow">Community</span>
+              <strong id="boardState">等待发牌</strong>
+            </div>
+            <div class="dealer-chip" id="dealerLabel">D</div>
+          </div>
+          <div id="community" class="community cards"></div>
+          <div id="runoutBoards" class="runout-boards"></div>
+          <div id="potChips" class="chip-rack" aria-label="底池筹码"></div>
+          <div id="message" class="message">选择初始筹码，点击“新牌局”开始。</div>
+        </div>
+      </section>
+
+      <section id="hero" class="hero-seat" aria-label="你的座位"></section>
+
+      <section class="play-panel" aria-label="操作区">
+        <div class="action-panel">
+          <div class="amount-box">
+            <label for="betAmount">下注到</label>
+            <input id="betAmount" type="number" min="0" step="10" value="60" />
+          </div>
+          <div class="quick-actions">
+            <button id="foldBtn">弃牌</button>
+            <button id="checkCallBtn">看牌</button>
+            <button id="betRaiseBtn">下注</button>
+            <button id="threeBetBtn">3Bet</button>
+            <button id="potBetBtn">半池</button>
+            <button id="allInBtn">All-in</button>
+          </div>
+        </div>
+        <aside class="story-panel" aria-label="行动记录">
+          <div class="story-head">
+            <span>行动记录</span>
+            <strong id="heroRead">读取中</strong>
+          </div>
+          <div id="actionLog" class="action-log"></div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./vendor/pokersolver.js"></script>
+    <script src="./game.js?v=20260619-12"></script>
+  </body>
+</html>

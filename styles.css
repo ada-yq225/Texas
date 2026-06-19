@@ -1,0 +1,1866 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --bg: #0f1114;
+  --panel: rgba(18, 22, 24, 0.82);
+  --panel-strong: #171d20;
+  --line: rgba(255, 255, 255, 0.14);
+  --line-strong: rgba(255, 255, 255, 0.24);
+  --text: #f7f3e8;
+  --muted: #aebbb7;
+  --felt: #1f6d57;
+  --felt-deep: #10392f;
+  --gold: #edbd5b;
+  --gold-deep: #9b6d25;
+  --red: #e3535f;
+  --blue: #4da3ff;
+  --green: #64d494;
+  --purple: #a985ff;
+}
+
+@media (min-width: 901px) {
+  .app-shell {
+    grid-template-rows: 74px 62px minmax(0, 1fr) 104px 94px;
+    gap: 7px;
+    overflow: hidden;
+  }
+
+  .poker-table,
+  body[data-players="4"] .poker-table,
+  body[data-players="5"] .poker-table,
+  body[data-players="6"] .poker-table,
+  body[data-players="7"] .poker-table,
+  body[data-players="8"] .poker-table {
+    grid-row: 3;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: 96px 48px minmax(108px, 1fr) 76px;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .hero-seat {
+    grid-column: 1;
+    grid-row: 4;
+    position: relative;
+    width: min(760px, 100%);
+    max-height: 104px;
+    align-self: stretch;
+    justify-self: center;
+    transform: none;
+  }
+
+  .hero-seat .seat {
+    height: 100%;
+    max-width: 760px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px 12px;
+  }
+
+  .hero-seat .cards {
+    min-height: 76px;
+    align-items: center;
+  }
+
+  .hero-seat .card {
+    width: 54px;
+  }
+
+  .play-panel {
+    grid-row: 5;
+    align-self: stretch;
+  }
+
+  .opponents .seat {
+    max-height: 96px;
+    overflow: hidden;
+  }
+
+  body[data-players="7"] .opponents .seat,
+  body[data-players="8"] .opponents .seat {
+    max-width: 174px;
+    max-height: 96px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 18% 4%, rgba(78, 163, 255, 0.16), transparent 28rem),
+    radial-gradient(circle at 84% 16%, rgba(237, 189, 91, 0.12), transparent 24rem),
+    linear-gradient(135deg, #101216 0%, #181916 48%, #0c1111 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), transparent 72%);
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+button,
+select,
+input {
+  border-radius: 8px;
+}
+
+button {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  padding: 0 16px;
+  color: var(--text);
+  background: linear-gradient(180deg, #2a3036, #1d2328);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    filter 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.32);
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+select,
+input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  padding: 0 12px;
+  color: var(--text);
+  background: #12181b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+select:focus,
+input:focus {
+  outline: 2px solid rgba(237, 189, 91, 0.38);
+  outline-offset: 1px;
+  border-color: rgba(237, 189, 91, 0.58);
+}
+
+.primary {
+  border-color: rgba(237, 189, 91, 0.62);
+  color: #241a08;
+  background: linear-gradient(180deg, #ffd879, #d79b36);
+}
+
+.app-shell {
+  width: min(1240px, calc(100vw - 28px));
+  margin: 0 auto;
+  padding: 18px 0 24px;
+}
+
+.top-bar {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.brand-block,
+.metric,
+.session-panel,
+.story-panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+}
+
+.brand-block {
+  border-radius: 8px;
+  padding: 14px 16px;
+  border-color: rgba(237, 189, 91, 0.28);
+  background:
+    linear-gradient(135deg, rgba(237, 189, 91, 0.12), transparent 42%),
+    var(--panel);
+}
+
+.eyebrow {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 4px 0 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  min-width: 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    rgba(18, 22, 24, 0.82);
+}
+
+.metric span,
+.field span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.08;
+  font-size: 24px;
+}
+
+.metric.positive strong {
+  color: var(--green);
+}
+
+.metric.negative strong {
+  color: var(--red);
+}
+
+.session-panel {
+  display: grid;
+  grid-template-columns: 135px 135px 120px 190px 145px 1fr 1fr;
+  gap: 10px;
+  align-items: end;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    rgba(14, 18, 20, 0.9);
+}
+
+.field {
+  min-width: 0;
+}
+
+.field select {
+  width: 100%;
+}
+
+.poker-table {
+  position: relative;
+  min-height: 660px;
+  overflow: hidden;
+  border: 14px solid #33271b;
+  border-radius: 42% / 17%;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    radial-gradient(ellipse at center, rgba(255, 255, 255, 0.16), transparent 27%),
+    radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-deep) 74%);
+  background-size:
+    36px 36px,
+    36px 36px,
+    auto,
+    auto;
+  box-shadow:
+    inset 0 0 0 8px rgba(255, 255, 255, 0.07),
+    inset 0 0 80px rgba(0, 0, 0, 0.18),
+    0 32px 80px rgba(0, 0, 0, 0.38);
+}
+
+.poker-table::before {
+  content: "";
+  position: absolute;
+  inset: 22px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.poker-table::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.07), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.16));
+}
+
+.opponents {
+  position: absolute;
+  inset: 0;
+}
+
+.seat {
+  position: absolute;
+  width: 224px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(11, 18, 18, 0.72);
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  z-index: 2;
+}
+
+.seat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-left: 3px solid rgba(237, 189, 91, 0.35);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.opponents .seat-1 {
+  top: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.opponents .seat-2 {
+  top: 118px;
+  right: 128px;
+}
+
+.opponents .seat-3 {
+  top: 296px;
+  right: 44px;
+}
+
+.opponents .seat-4 {
+  right: 170px;
+  bottom: 116px;
+}
+
+.opponents .seat-5 {
+  left: 170px;
+  bottom: 116px;
+}
+
+.opponents .seat-6 {
+  top: 296px;
+  left: 44px;
+}
+
+.opponents .seat-7 {
+  top: 118px;
+  left: 128px;
+}
+
+body[data-players="7"] .poker-table,
+body[data-players="8"] .poker-table {
+  min-height: 820px;
+}
+
+body[data-players="7"] .opponents .seat,
+body[data-players="8"] .opponents .seat {
+  width: 178px;
+  padding: 8px;
+}
+
+body[data-players="7"] .opponents .cards,
+body[data-players="8"] .opponents .cards {
+  gap: 5px;
+  min-height: 64px;
+}
+
+body[data-players="7"] .opponents .card,
+body[data-players="8"] .opponents .card {
+  width: 44px;
+  border-radius: 6px;
+  box-shadow: 0 9px 14px rgba(0, 0, 0, 0.22);
+}
+
+body[data-players="7"] .opponents .card .rank,
+body[data-players="8"] .opponents .card .rank {
+  top: 5px;
+  left: 6px;
+  font-size: 13px;
+}
+
+body[data-players="7"] .opponents .card .suit,
+body[data-players="8"] .opponents .card .suit {
+  right: 6px;
+  bottom: 3px;
+  font-size: 19px;
+}
+
+body[data-players="7"] .opponents .seat-1,
+body[data-players="8"] .opponents .seat-1 {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+body[data-players="7"] .opponents .seat-2,
+body[data-players="8"] .opponents .seat-2 {
+  top: 78px;
+  right: 260px;
+}
+
+body[data-players="7"] .opponents .seat-3,
+body[data-players="8"] .opponents .seat-3 {
+  top: 266px;
+  right: 60px;
+}
+
+body[data-players="7"] .opponents .seat-4,
+body[data-players="8"] .opponents .seat-4 {
+  right: 245px;
+  bottom: 118px;
+}
+
+body[data-players="7"] .opponents .seat-5,
+body[data-players="8"] .opponents .seat-5 {
+  left: 245px;
+  bottom: 118px;
+}
+
+body[data-players="7"] .opponents .seat-6,
+body[data-players="8"] .opponents .seat-6 {
+  top: 266px;
+  left: 60px;
+}
+
+body[data-players="7"] .opponents .seat-7,
+body[data-players="8"] .opponents .seat-7 {
+  top: 78px;
+  left: 260px;
+}
+
+body[data-players="7"] .center-felt,
+body[data-players="8"] .center-felt {
+  top: 51%;
+  width: min(560px, calc(100% - 620px));
+}
+
+body[data-players="7"] .community .card,
+body[data-players="8"] .community .card {
+  width: clamp(54px, 5vw, 68px);
+}
+
+.hero-seat {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  width: min(610px, calc(100% - 44px));
+  transform: translateX(-50%);
+}
+
+.hero-seat .seat {
+  position: static;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  border-color: rgba(237, 189, 91, 0.34);
+  background: rgba(11, 18, 18, 0.82);
+}
+
+.center-felt {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(650px, calc(100% - 100px));
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 1;
+}
+
+.board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(520px, 100%);
+  margin: 0 auto 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  background: rgba(6, 15, 13, 0.42);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.board-head strong {
+  display: block;
+  margin-top: 2px;
+}
+
+.dealer-chip {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 4px solid #efe7d4;
+  border-radius: 50%;
+  color: #17110a;
+  background: #f7f0df;
+  font-weight: 1000;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+.cards {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  min-height: 106px;
+}
+
+.runout-boards {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.runout-board {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: min(540px, 100%);
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(6, 15, 13, 0.42);
+}
+
+.runout-board > span {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.runout-board .cards {
+  min-height: 62px;
+  justify-content: flex-start;
+}
+
+.runout-board .card {
+  width: 42px;
+  border-radius: 6px;
+}
+
+.runout-board .card .rank {
+  top: 4px;
+  left: 5px;
+  font-size: 12px;
+}
+
+.runout-board .card .suit {
+  right: 5px;
+  bottom: 3px;
+  font-size: 18px;
+}
+
+.card {
+  position: relative;
+  width: clamp(50px, 6.5vw, 74px);
+  aspect-ratio: 0.72;
+  border: 1px solid rgba(0, 0, 0, 0.24);
+  border-radius: 8px;
+  color: #17191a;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(229, 222, 204, 0.98)),
+    #f8f4e8;
+  box-shadow:
+    0 14px 20px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.hero-seat .card {
+  width: clamp(58px, 7vw, 82px);
+}
+
+.card.red {
+  color: var(--red);
+}
+
+.card.back {
+  border: 3px solid #eee5cc;
+  background:
+    linear-gradient(135deg, transparent 18%, rgba(255, 255, 255, 0.22) 18% 22%, transparent 22%),
+    repeating-linear-gradient(45deg, #b33c42 0 7px, #7f2832 7px 14px),
+    #92323a;
+}
+
+.card .rank {
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  font-size: clamp(15px, 2vw, 19px);
+  font-weight: 1000;
+}
+
+.card .suit {
+  position: absolute;
+  right: 8px;
+  bottom: 5px;
+  font-size: clamp(22px, 3.1vw, 34px);
+}
+
+.seat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 1000;
+}
+
+.badges {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.status,
+.pos-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #111715;
+  background: #d4ded8;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.pos-badge {
+  background: var(--gold);
+}
+
+.status.folded {
+  color: #fff;
+  background: #6a7076;
+}
+
+.status.thinking {
+  color: #062214;
+  background: var(--green);
+}
+
+.status.winner {
+  color: #251a07;
+  background: var(--gold);
+}
+
+.stack-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.read-row {
+  color: #dbe9e1;
+}
+
+.equity-row {
+  color: var(--gold);
+  font-weight: 1000;
+}
+
+.equity-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  margin-top: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+
+.equity-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--gold));
+  box-shadow: 0 0 12px rgba(100, 212, 148, 0.35);
+}
+
+.hero-seat .cards {
+  justify-content: flex-end;
+  min-height: 108px;
+}
+
+.chip-rack {
+  display: flex;
+  min-height: 36px;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.chip {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 4px dotted rgba(255, 255, 255, 0.78);
+  border-radius: 50%;
+  color: #151515;
+  background: var(--gold);
+  font-size: 9px;
+  font-weight: 1000;
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.26);
+}
+
+.chip.blue {
+  background: var(--blue);
+}
+
+.chip.red {
+  color: #fff;
+  background: var(--red);
+}
+
+.chip.green {
+  background: var(--green);
+}
+
+.message {
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #fff8dd;
+  background: rgba(0, 0, 0, 0.3);
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.play-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.action-panel,
+.story-panel {
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.action-panel {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 10px;
+  border: 1px solid rgba(237, 189, 91, 0.18);
+  background: rgba(18, 22, 24, 0.82);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+}
+
+.amount-box label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.amount-box input {
+  width: 100%;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.story-panel {
+  min-height: 94px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
+    rgba(18, 22, 24, 0.82);
+}
+
+.story-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.story-head strong {
+  color: var(--gold);
+}
+
+.action-log {
+  display: grid;
+  gap: 4px;
+  max-height: 96px;
+  overflow: auto;
+  color: #dce7e2;
+  font-size: 13px;
+}
+
+.action-log div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .top-bar,
+  .play-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .session-panel {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    width: min(100vw - 18px, 620px);
+    padding: 10px 0 18px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-panel,
+  .action-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .poker-table {
+    min-height: 1280px;
+    border-width: 8px;
+    border-radius: 30px;
+  }
+
+  body[data-players="4"] .poker-table {
+    min-height: 960px;
+  }
+
+  body[data-players="5"] .poker-table,
+  body[data-players="6"] .poker-table {
+    min-height: 1220px;
+  }
+
+  body[data-players="7"] .poker-table,
+  body[data-players="8"] .poker-table {
+    min-height: 1580px;
+  }
+
+  .seat {
+    width: 164px;
+    padding: 8px;
+  }
+
+  .opponents .seat-1 {
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .opponents .seat-2 {
+    top: 210px;
+    right: 10px;
+  }
+
+  .opponents .seat-3 {
+    top: 210px;
+    left: 10px;
+  }
+
+  .opponents .seat-4 {
+    top: 406px;
+    right: 10px;
+    bottom: auto;
+  }
+
+  .opponents .seat-5 {
+    top: 406px;
+    left: 10px;
+    bottom: auto;
+  }
+
+  .opponents .seat-6 {
+    top: 602px;
+    right: 10px;
+    left: auto;
+  }
+
+  .opponents .seat-7 {
+    top: 602px;
+    left: 10px;
+  }
+
+  .center-felt {
+    top: 66%;
+    width: calc(100% - 24px);
+  }
+
+  body[data-players="4"] .center-felt {
+    top: 57%;
+  }
+
+  body[data-players="5"] .center-felt,
+  body[data-players="6"] .center-felt {
+    top: 63%;
+  }
+
+  body[data-players="7"] .center-felt,
+  body[data-players="8"] .center-felt {
+    top: 68%;
+  }
+
+  .hero-seat {
+    bottom: 16px;
+  }
+
+  .hero-seat .seat {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-seat .cards {
+    justify-content: center;
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .runout-board {
+    grid-template-columns: 1fr;
+  }
+
+  .runout-board .cards {
+    justify-content: center;
+  }
+}
+
+/* Stable table layout for 4-8 handed play. This overrides the older absolute-seat layout. */
+.poker-table {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(130px, 180px) minmax(360px, 1fr) minmax(130px, 180px) minmax(150px, 210px);
+  grid-template-rows: 146px 126px minmax(170px, 1fr) 126px 168px;
+  gap: 12px 14px;
+  align-items: center;
+  padding: 34px;
+  min-height: 780px;
+  border-radius: 34px;
+}
+
+.opponents {
+  display: contents;
+  position: static;
+}
+
+.seat {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  max-width: 210px;
+  align-self: center;
+  justify-self: center;
+}
+
+.opponents .seat-1,
+body[data-players="7"] .opponents .seat-1,
+body[data-players="8"] .opponents .seat-1 {
+  grid-column: 3;
+  grid-row: 1;
+  top: auto;
+  left: auto;
+  transform: none;
+}
+
+.opponents .seat-2,
+body[data-players="7"] .opponents .seat-2,
+body[data-players="8"] .opponents .seat-2 {
+  grid-column: 4;
+  grid-row: 1;
+  top: auto;
+  right: auto;
+}
+
+.opponents .seat-3,
+body[data-players="7"] .opponents .seat-3,
+body[data-players="8"] .opponents .seat-3 {
+  grid-column: 5;
+  grid-row: 3;
+  top: auto;
+  right: auto;
+}
+
+.opponents .seat-4,
+body[data-players="7"] .opponents .seat-4,
+body[data-players="8"] .opponents .seat-4 {
+  grid-column: 4;
+  grid-row: 4;
+  right: auto;
+  bottom: auto;
+}
+
+.opponents .seat-5,
+body[data-players="7"] .opponents .seat-5,
+body[data-players="8"] .opponents .seat-5 {
+  grid-column: 2;
+  grid-row: 4;
+  left: auto;
+  bottom: auto;
+}
+
+.opponents .seat-6,
+body[data-players="7"] .opponents .seat-6,
+body[data-players="8"] .opponents .seat-6 {
+  grid-column: 1;
+  grid-row: 3;
+  top: auto;
+  left: auto;
+}
+
+.opponents .seat-7,
+body[data-players="7"] .opponents .seat-7,
+body[data-players="8"] .opponents .seat-7 {
+  grid-column: 2;
+  grid-row: 1;
+  top: auto;
+  left: auto;
+}
+
+body[data-players="4"] .opponents .seat-1 {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+body[data-players="4"] .opponents .seat-2 {
+  grid-column: 5;
+  grid-row: 3;
+}
+
+body[data-players="4"] .opponents .seat-3 {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+body[data-players="5"] .opponents .seat-1 {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+body[data-players="5"] .opponents .seat-2 {
+  grid-column: 5;
+  grid-row: 2;
+}
+
+body[data-players="5"] .opponents .seat-3 {
+  grid-column: 5;
+  grid-row: 4;
+}
+
+body[data-players="5"] .opponents .seat-4 {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+body[data-players="6"] .opponents .seat-1 {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+body[data-players="6"] .opponents .seat-2 {
+  grid-column: 5;
+  grid-row: 2;
+}
+
+body[data-players="6"] .opponents .seat-3 {
+  grid-column: 5;
+  grid-row: 4;
+}
+
+body[data-players="6"] .opponents .seat-4 {
+  grid-column: 1;
+  grid-row: 4;
+}
+
+body[data-players="6"] .opponents .seat-5 {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+body[data-players="7"] .opponents .seat-1,
+body[data-players="8"] .opponents .seat-1 {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+body[data-players="7"] .opponents .seat-2,
+body[data-players="8"] .opponents .seat-2 {
+  grid-column: 5;
+  grid-row: 1;
+}
+
+body[data-players="7"] .opponents .seat-3,
+body[data-players="8"] .opponents .seat-3 {
+  grid-column: 5;
+  grid-row: 3;
+}
+
+body[data-players="7"] .opponents .seat-4,
+body[data-players="8"] .opponents .seat-4 {
+  grid-column: 5;
+  grid-row: 4;
+}
+
+body[data-players="7"] .opponents .seat-5,
+body[data-players="8"] .opponents .seat-5 {
+  grid-column: 1;
+  grid-row: 4;
+}
+
+body[data-players="7"] .opponents .seat-6,
+body[data-players="8"] .opponents .seat-6 {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+body[data-players="8"] .opponents .seat-7 {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+body[data-players="7"] .opponents .seat,
+body[data-players="8"] .opponents .seat {
+  width: 100%;
+  max-width: 190px;
+}
+
+.center-felt,
+body[data-players="7"] .center-felt,
+body[data-players="8"] .center-felt {
+  grid-column: 2 / 5;
+  grid-row: 2 / 5;
+  position: relative;
+  top: auto;
+  left: auto;
+  width: min(100%, 620px);
+  transform: none;
+  align-self: center;
+  justify-self: center;
+}
+
+.hero-seat {
+  grid-column: 3;
+  grid-row: 5;
+  position: relative;
+  left: auto;
+  bottom: auto;
+  width: min(100%, 620px);
+  transform: none;
+  align-self: end;
+  justify-self: center;
+}
+
+.opponents .cards {
+  min-height: 72px;
+}
+
+.opponents .card {
+  width: 46px;
+  border-radius: 6px;
+}
+
+.opponents .card .rank {
+  top: 5px;
+  left: 6px;
+  font-size: 13px;
+}
+
+.opponents .card .suit {
+  right: 6px;
+  bottom: 3px;
+  font-size: 19px;
+}
+
+@media (max-width: 900px) {
+  .poker-table,
+  body[data-players="4"] .poker-table,
+  body[data-players="5"] .poker-table,
+  body[data-players="6"] .poker-table,
+  body[data-players="7"] .poker-table,
+  body[data-players="8"] .poker-table {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: auto;
+    padding: 14px;
+    border-radius: 24px;
+  }
+
+  .opponents {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+    order: 1;
+  }
+
+  .opponents .seat,
+  body[data-players="7"] .opponents .seat,
+  body[data-players="8"] .opponents .seat {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    grid-column: auto;
+    grid-row: auto;
+    width: 100%;
+    max-width: none;
+    min-height: 148px;
+  }
+
+  .center-felt,
+  body[data-players="7"] .center-felt,
+  body[data-players="8"] .center-felt {
+    order: 2;
+    width: 100%;
+    max-width: none;
+  }
+
+  .hero-seat {
+    order: 3;
+    width: 100%;
+    max-width: none;
+  }
+
+  .hero-seat .seat {
+    max-width: none;
+  }
+}
+
+/* Final density pass for crowded 7-8 handed desktop tables. */
+@media (min-width: 901px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    display: grid;
+    grid-template-rows: 78px 68px minmax(0, 1fr) 108px 96px;
+    gap: 8px;
+    width: min(1240px, calc(100vw - 24px));
+    height: 100vh;
+    padding: 10px 0;
+  }
+
+  .top-bar {
+    grid-template-columns: 250px 1fr;
+    gap: 8px;
+    margin-bottom: 0;
+    min-height: 0;
+  }
+
+  .brand-block {
+    padding: 10px 14px;
+  }
+
+  h1 {
+    font-size: 23px;
+  }
+
+  .metric-grid {
+    gap: 8px;
+  }
+
+  .metric {
+    padding: 9px 12px;
+  }
+
+  .metric span,
+  .field span {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+
+  .metric strong {
+    font-size: 20px;
+  }
+
+  .session-panel {
+    margin-bottom: 0;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  select,
+  input {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+
+  button {
+    min-height: 38px;
+    padding: 0 12px;
+  }
+
+  .poker-table {
+    min-height: 0;
+    height: 100%;
+    grid-template-columns: 170px 112px minmax(300px, 1fr) 112px 170px;
+    grid-template-rows: 104px 54px minmax(120px, 1fr) 82px;
+    gap: 8px 10px;
+    padding: 18px;
+    border-width: 10px;
+    border-radius: 28px;
+  }
+
+  body[data-players="7"] .poker-table,
+  body[data-players="8"] .poker-table {
+    min-height: 0;
+    grid-template-rows: 104px 54px minmax(120px, 1fr) 82px;
+  }
+
+  .seat {
+    max-width: 170px;
+    padding: 7px;
+  }
+
+  .opponents .seat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    align-items: center;
+    min-height: 92px;
+  }
+
+  .seat-head {
+    margin-bottom: 4px;
+  }
+
+  .name {
+    font-size: 14px;
+  }
+
+  .status,
+  .pos-badge {
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .stack-row {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .read-row {
+    display: none;
+  }
+
+  .equity-row {
+    display: flex;
+  }
+
+  .equity-bar {
+    height: 5px;
+    margin-top: 4px;
+  }
+
+  .opponents .cards {
+    min-height: 48px;
+    gap: 5px;
+    justify-content: flex-end;
+  }
+
+  .opponents .card,
+  body[data-players="7"] .opponents .card,
+  body[data-players="8"] .opponents .card {
+    width: 34px;
+  }
+
+  .opponents .card .rank,
+  body[data-players="7"] .opponents .card .rank,
+  body[data-players="8"] .opponents .card .rank {
+    top: 4px;
+    left: 5px;
+    font-size: 11px;
+  }
+
+  .opponents .card .suit,
+  body[data-players="7"] .opponents .card .suit,
+  body[data-players="8"] .opponents .card .suit {
+    right: 5px;
+    bottom: 3px;
+    font-size: 16px;
+  }
+
+  .center-felt,
+  body[data-players="7"] .center-felt,
+  body[data-players="8"] .center-felt {
+    width: min(100%, 520px);
+  }
+
+  .board-head {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+  }
+
+  .dealer-chip {
+    width: 30px;
+    height: 30px;
+    border-width: 3px;
+  }
+
+  .community.cards {
+    min-height: 78px;
+  }
+
+  .community .card,
+  body[data-players="7"] .community .card,
+  body[data-players="8"] .community .card {
+    width: 52px;
+  }
+
+  .chip-rack {
+    min-height: 26px;
+    margin: 8px 0;
+  }
+
+  .chip {
+    width: 24px;
+    height: 24px;
+    border-width: 3px;
+    font-size: 8px;
+  }
+
+  .message {
+    min-height: 38px;
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .hero-seat {
+    width: min(760px, 100%);
+    justify-self: center;
+    align-self: center;
+  }
+
+  .hero-seat .seat {
+    max-width: 760px;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .hero-seat .cards {
+    min-height: 82px;
+  }
+
+  .hero-seat .card {
+    width: 56px;
+  }
+
+  .play-panel {
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 8px;
+    margin-top: 0;
+    min-height: 0;
+  }
+
+  .action-panel,
+  .story-panel {
+    padding: 8px;
+  }
+
+  .action-panel {
+    grid-template-columns: 130px 1fr;
+    gap: 8px;
+  }
+
+  .quick-actions {
+    gap: 6px;
+  }
+
+  .story-panel {
+    min-height: 0;
+  }
+
+  .story-head {
+    margin-bottom: 5px;
+  }
+
+  .action-log {
+    max-height: 54px;
+    font-size: 12px;
+  }
+
+  body[data-players="7"] .opponents .seat,
+  body[data-players="8"] .opponents .seat {
+    max-width: 170px;
+    padding: 7px;
+  }
+
+  body[data-players="7"] .poker-table,
+  body[data-players="8"] .poker-table {
+    min-height: 0;
+    grid-template-rows: 104px 54px minmax(120px, 1fr) 82px 118px;
+  }
+
+  body[data-players="7"] .opponents .seat,
+  body[data-players="8"] .opponents .seat {
+    max-width: 190px;
+    padding: 7px;
+  }
+
+  body[data-players="7"] .opponents .cards,
+  body[data-players="8"] .opponents .cards {
+    gap: 5px;
+    min-height: 58px;
+  }
+
+  body[data-players="7"] .opponents .card,
+  body[data-players="8"] .opponents .card {
+    width: 38px;
+  }
+
+  body[data-players="7"] .opponents .seat-head,
+  body[data-players="8"] .opponents .seat-head {
+    margin-bottom: 5px;
+  }
+
+  body[data-players="7"] .opponents .stack-row,
+  body[data-players="8"] .opponents .stack-row {
+    margin-top: 5px;
+    font-size: 12px;
+  }
+
+  body[data-players="7"] .opponents .equity-bar,
+  body[data-players="8"] .opponents .equity-bar {
+    height: 5px;
+    margin-top: 5px;
+  }
+}
+
+@media (min-width: 901px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows:
+      clamp(58px, 7vh, 76px)
+      clamp(54px, 6vh, 66px)
+      minmax(310px, 1fr)
+      clamp(92px, 10vh, 112px)
+      clamp(86px, 9vh, 100px) !important;
+    gap: clamp(5px, 0.7vh, 8px) !important;
+    width: min(1400px, calc(100vw - 28px)) !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    padding: clamp(6px, 1vh, 10px) 0 !important;
+    overflow: hidden !important;
+  }
+
+  .top-bar,
+  .session-panel,
+  .poker-table,
+  .hero-seat,
+  .play-panel {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .top-bar {
+    grid-row: 1 !important;
+    margin-bottom: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .session-panel {
+    grid-row: 2 !important;
+    margin-bottom: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .poker-table {
+    grid-row: 3 !important;
+  }
+
+  .hero-seat {
+    grid-row: 4 !important;
+  }
+
+  .play-panel {
+    grid-row: 5 !important;
+    margin-top: 0 !important;
+  }
+
+  .poker-table,
+  body[data-players="4"] .poker-table,
+  body[data-players="5"] .poker-table,
+  body[data-players="6"] .poker-table,
+  body[data-players="7"] .poker-table,
+  body[data-players="8"] .poker-table {
+    display: grid !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    grid-template-columns:
+      clamp(142px, 12vw, 182px)
+      clamp(78px, 7vw, 118px)
+      minmax(280px, 1fr)
+      clamp(78px, 7vw, 118px)
+      clamp(142px, 12vw, 182px) !important;
+    grid-template-rows:
+      clamp(78px, 14vh, 108px)
+      clamp(38px, 6vh, 52px)
+      minmax(92px, 1fr)
+      clamp(58px, 9vh, 82px) !important;
+    gap: clamp(6px, 1vh, 10px) clamp(7px, 1vw, 12px) !important;
+    padding: clamp(10px, 1.5vh, 16px) !important;
+    overflow: hidden !important;
+  }
+
+  .opponents {
+    display: contents !important;
+  }
+
+  .opponents .seat {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    min-width: 0 !important;
+    padding: clamp(6px, 1vh, 9px) !important;
+    overflow: hidden !important;
+  }
+
+  .opponents .cards {
+    min-height: clamp(48px, 8vh, 68px) !important;
+    gap: 5px !important;
+  }
+
+  .opponents .card {
+    width: clamp(34px, 3.7vw, 48px) !important;
+  }
+
+  .center-felt,
+  body[data-players="7"] .center-felt,
+  body[data-players="8"] .center-felt {
+    grid-column: 2 / 5 !important;
+    grid-row: 2 / 5 !important;
+    width: min(100%, clamp(430px, 46vw, 620px)) !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    align-self: center !important;
+    justify-self: center !important;
+    padding: clamp(10px, 1.4vh, 14px) !important;
+    overflow: hidden !important;
+  }
+
+  .community {
+    min-height: clamp(76px, 13vh, 104px) !important;
+  }
+
+  .community .card {
+    width: clamp(48px, 5.2vw, 72px) !important;
+  }
+
+  .chip-rack {
+    min-height: clamp(24px, 4vh, 34px) !important;
+    margin: clamp(5px, 0.8vh, 8px) 0 !important;
+  }
+
+  .message {
+    min-height: clamp(34px, 5vh, 44px) !important;
+    padding: 8px 10px !important;
+    font-size: clamp(13px, 1.2vw, 15px) !important;
+  }
+
+  .hero-seat {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    top: auto !important;
+    transform: none !important;
+    max-height: none !important;
+    justify-self: stretch !important;
+    align-self: stretch !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    pointer-events: auto !important;
+    z-index: 5 !important;
+  }
+
+  .hero-seat .seat {
+    width: min(760px, 100%) !important;
+    max-width: 760px !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: clamp(7px, 1vh, 10px) 12px !important;
+    overflow: hidden !important;
+  }
+
+  .hero-seat .cards {
+    min-height: clamp(68px, 8vh, 86px) !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+
+  .hero-seat .card {
+    width: clamp(46px, 4.8vw, 58px) !important;
+  }
+
+  .play-panel {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 360px) !important;
+    gap: 8px !important;
+    min-height: 0 !important;
+    align-self: stretch !important;
+    overflow: hidden !important;
+  }
+
+  .action-panel,
+  .story-panel {
+    min-height: 0 !important;
+    padding: 8px !important;
+    overflow: hidden !important;
+  }
+
+  .action-panel {
+    grid-template-columns: minmax(110px, 140px) minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .quick-actions button,
+  .action-panel input {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .action-log {
+    max-height: clamp(42px, 5vh, 58px) !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 820px) {
+  .brand-block h1 {
+    font-size: 20px !important;
+  }
+
+  .metric {
+    padding: 8px 10px !important;
+  }
+
+  .metric strong {
+    font-size: 22px !important;
+  }
+
+  .field span {
+    font-size: 11px !important;
+  }
+
+  .session-panel button,
+  .field select {
+    min-height: 34px !important;
+    font-size: 15px !important;
+  }
+
+  .seat-name {
+    max-width: 72px !important;
+  }
+
+  .stack-row {
+    margin-top: 4px !important;
+    font-size: 12px !important;
+  }
+
+  .equity-wrap {
+    margin-top: 4px !important;
+  }
+}
