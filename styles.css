@@ -1676,11 +1676,11 @@ body[data-players="8"] .center-felt {
     height: 100% !important;
     min-height: 0 !important;
     grid-template-columns:
-      clamp(142px, 12vw, 182px)
-      clamp(78px, 7vw, 118px)
+      clamp(180px, 15vw, 220px)
+      clamp(64px, 6vw, 104px)
       minmax(280px, 1fr)
-      clamp(78px, 7vw, 118px)
-      clamp(142px, 12vw, 182px) !important;
+      clamp(64px, 6vw, 104px)
+      clamp(180px, 15vw, 220px) !important;
     grid-template-rows:
       clamp(78px, 14vh, 108px)
       clamp(38px, 6vh, 52px)
@@ -1863,4 +1863,99 @@ body[data-players="8"] .center-felt {
   .equity-wrap {
     margin-top: 4px !important;
   }
+}
+
+/* Final opponent card layout: keep text and hole cards in separate columns. */
+.opponents .seat {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  column-gap: clamp(6px, 0.8vw, 10px) !important;
+}
+
+.opponents .seat-info {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: 2px !important;
+}
+
+.opponents .seat-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 5px !important;
+  margin-bottom: 2px !important;
+  min-width: 0 !important;
+}
+
+.opponents .name,
+.opponents .stack-row span,
+.opponents .read-row span,
+.opponents .equity-row span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.opponents .badges {
+  min-width: max-content !important;
+  max-width: 78px !important;
+  overflow: hidden !important;
+}
+
+.opponents .status,
+.opponents .pos-badge {
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+}
+
+.opponents .stack-row {
+  min-width: 0 !important;
+  gap: 5px !important;
+  margin-top: 2px !important;
+  font-size: clamp(10px, 0.95vw, 12px) !important;
+  line-height: 1.15 !important;
+}
+
+.opponents .equity-bar {
+  height: 4px !important;
+  margin-top: 3px !important;
+}
+
+.opponents .cards {
+  flex: 0 0 auto !important;
+  min-width: clamp(65px, 6vw, 89px) !important;
+  min-height: 0 !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+
+body[data-mode="study"] .opponents .seat {
+  grid-template-columns: minmax(58px, 1fr) auto !important;
+}
+
+body[data-players="7"] .opponents .badges,
+body[data-players="8"] .opponents .badges {
+  max-width: 70px !important;
+}
+
+body[data-players="7"] .opponents .stack-row,
+body[data-players="8"] .opponents .stack-row {
+  font-size: 10px !important;
+}
+
+body[data-players="7"] .opponents .seat,
+body[data-players="8"] .opponents .seat {
+  padding: 6px !important;
+  column-gap: 6px !important;
+}
+
+.opponents .card,
+body[data-players="7"] .opponents .card,
+body[data-players="8"] .opponents .card {
+  width: clamp(30px, 2.8vw, 42px) !important;
 }

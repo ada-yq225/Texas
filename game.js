@@ -367,7 +367,7 @@ function playerMarkup(player, displayIndex = 0) {
 
   const seatClass = player.isHero ? "" : ` seat-${displayIndex + 1}`;
   return `<article class="seat${seatClass}">
-    <div>
+    <div class="seat-info">
       <div class="seat-head">
         <span class="name">${player.name}</span>
         <span class="badges">${position}<span class="status ${statusClass}">${status}</span></span>
