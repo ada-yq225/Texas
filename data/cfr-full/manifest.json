@@ -1,0 +1,83 @@
+{
+  "version": 2,
+  "comboLevel": 1326,
+  "files": {
+    "preflop": [
+      "preflop_hu_1326.json",
+      "preflop_rfi_1326.json"
+    ],
+    "river": [
+      "river_3bp_ip_Ah72_4_9.json",
+      "river_3bp_ip_JhT9_J_8.json",
+      "river_3bp_ip_Kh95_T_2.json",
+      "river_3bp_ip_Qh86_9_3.json",
+      "river_3bp_ip_T95m_8_2.json",
+      "river_3bp_ip_pr88K_A_5.json",
+      "river_srp_ip_Ah72_4_9.json",
+      "river_srp_ip_JhT9_J_8.json",
+      "river_srp_ip_Kh95_T_2.json",
+      "river_srp_ip_Qh86_9_3.json",
+      "river_srp_ip_T95m_8_2.json",
+      "river_srp_ip_pr88K_A_5.json",
+      "river_srp_oop_Ah72_4_9.json",
+      "river_srp_oop_JhT9_J_8.json",
+      "river_srp_oop_Kh95_T_2.json",
+      "river_srp_oop_Qh86_9_3.json",
+      "river_srp_oop_T95m_8_2.json",
+      "river_srp_oop_pr88K_A_5.json"
+    ],
+    "turn": [
+      "turn_3bp_ip_Ah72_4.json",
+      "turn_3bp_ip_Aq5s_K.json",
+      "turn_3bp_ip_JhT9_J.json",
+      "turn_3bp_ip_Kh95_T.json",
+      "turn_3bp_ip_Qh86_9.json",
+      "turn_3bp_ip_T95m_8.json",
+      "turn_3bp_ip_low765_4.json",
+      "turn_3bp_ip_pr88K_A.json",
+      "turn_srp_ip_Ah72_4.json",
+      "turn_srp_ip_Aq5s_K.json",
+      "turn_srp_ip_JhT9_J.json",
+      "turn_srp_ip_Kh95_T.json",
+      "turn_srp_ip_Qh86_9.json",
+      "turn_srp_ip_T95m_8.json",
+      "turn_srp_ip_low765_4.json",
+      "turn_srp_ip_pr88K_A.json"
+    ],
+    "flop": [
+      "flop_3bp_oop_A96r.json",
+      "flop_3bp_oop_Ah72r.json",
+      "flop_3bp_oop_Aq5ss.json",
+      "flop_3bp_oop_J84r.json",
+      "flop_3bp_oop_JhT9ss.json",
+      "flop_3bp_oop_KJTss.json",
+      "flop_3bp_oop_Kh95r.json",
+      "flop_3bp_oop_Q72r.json",
+      "flop_3bp_oop_Qh86tw.json",
+      "flop_3bp_oop_T95mono.json",
+      "flop_3bp_oop_low765.json",
+      "flop_3bp_oop_paired88K.json",
+      "flop_srp_ip_A96r.json",
+      "flop_srp_ip_Ah72r.json",
+      "flop_srp_ip_Aq5ss.json",
+      "flop_srp_ip_J84r.json",
+      "flop_srp_ip_JhT9ss.json",
+      "flop_srp_ip_KJTss.json",
+      "flop_srp_ip_Kh95r.json",
+      "flop_srp_ip_Q72r.json",
+      "flop_srp_ip_Qh86tw.json",
+      "flop_srp_ip_T95mono.json",
+      "flop_srp_ip_low765.json",
+      "flop_srp_ip_paired88K.json"
+    ]
+  },
+  "stats": {
+    "totalFiles": 60,
+    "preflop": 2,
+    "river": 18,
+    "turn": 16,
+    "flop": 24,
+    "complete": true
+  },
+  "generatedAt": "2026-06-24T23:29:21.293Z"
+}

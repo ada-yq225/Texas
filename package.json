@@ -1,0 +1,10 @@
+{
+  "name": "texas-holdem-gto",
+  "private": true,
+  "scripts": {
+    "train:cfr": "node scripts/train-all.js",
+    "train:full": "node scripts/full-tree/train-full.js",
+    "train:flop": "node scripts/full-tree/train-remaining-flop.js",
+    "serve": "python3 -m http.server 5173"
+  }
+}

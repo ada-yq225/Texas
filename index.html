@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>单机德州扑克</title>
-    <link rel="stylesheet" href="./styles.css?v=20260619-13" />
+    <link rel="stylesheet" href="./styles.css?v=20260625-06" />
   </head>
   <body>
     <main class="app-shell">
@@ -73,6 +73,22 @@
           </select>
         </label>
         <label class="field">
+          <span>玩家模式</span>
+          <select id="heroModeSelect">
+            <option value="manual" selected>手动操作</option>
+            <option value="gto">职业 GTO Solver</option>
+            <option value="exploit">最优剥削 Solver</option>
+            <option value="dual">GTO vs 剥削对比</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>演示节奏</span>
+          <select id="gtoSpeedSelect">
+            <option value="step" selected>点击步进</option>
+            <option value="auto">自动连播</option>
+          </select>
+        </label>
+        <label class="field">
           <span>All-in 发牌</span>
           <select id="runTwiceSelect">
             <option value="once" selected>发一次</option>
@@ -80,7 +96,87 @@
           </select>
         </label>
         <button id="newSessionBtn">新牌局</button>
-        <button id="newHandBtn" class="primary">下一手牌</button>
+        <button id="simToggleBtn" class="accent" hidden>开始步进演示</button>
+        <button id="simStepBtn" class="primary" hidden>下一步</button>
+        <button id="newHandBtn">下一手牌</button>
+      </section>
+
+      <section id="simCommentaryPanel" class="sim-commentary-panel" hidden aria-label="职业解说">
+        <div class="sim-commentary-head">
+          <span class="eyebrow">Pro Commentary</span>
+          <strong>职业解说</strong>
+        </div>
+        <p id="simCommentaryAction" class="sim-commentary-action">点击「下一步」开始演示</p>
+        <div id="simCommentaryBody" class="sim-commentary-body"></div>
+      </section>
+
+      <section id="simStatsPanel" class="sim-stats-panel" hidden aria-label="长期收益对比">
+        <div class="sim-stats-head">
+          <span class="eyebrow">Long-term EV</span>
+          <strong id="simStatsStatus">未开始</strong>
+        </div>
+        <p id="simCompare" class="sim-compare" hidden></p>
+        <div class="sim-stats-columns">
+          <div class="sim-stats-col gto-col">
+            <div class="sim-col-title">GTO Solver</div>
+            <div class="gto-metric-grid">
+              <div class="metric">
+                <span>已完成</span>
+                <strong id="gtoHands">0</strong>
+              </div>
+              <div class="metric">
+                <span>累计盈亏</span>
+                <strong id="gtoProfit">0</strong>
+              </div>
+              <div class="metric">
+                <span>BB / 100</span>
+                <strong id="gtoBb100">0</strong>
+              </div>
+              <div class="metric">
+                <span>赢池率</span>
+                <strong id="gtoWinRate">0%</strong>
+              </div>
+              <div class="metric">
+                <span>场均盈亏</span>
+                <strong id="gtoAvgProfit">0</strong>
+              </div>
+              <div class="metric">
+                <span>重新买入</span>
+                <strong id="gtoRebuys">0</strong>
+              </div>
+            </div>
+          </div>
+          <div class="sim-stats-col exploit-col">
+            <div class="sim-col-title">Exploit Solver</div>
+            <div class="gto-metric-grid">
+              <div class="metric">
+                <span>已完成</span>
+                <strong id="exploitHands">0</strong>
+              </div>
+              <div class="metric">
+                <span>累计盈亏</span>
+                <strong id="exploitProfit">0</strong>
+              </div>
+              <div class="metric">
+                <span>BB / 100</span>
+                <strong id="exploitBb100">0</strong>
+              </div>
+              <div class="metric">
+                <span>赢池率</span>
+                <strong id="exploitWinRate">0%</strong>
+              </div>
+              <div class="metric">
+                <span>场均盈亏</span>
+                <strong id="exploitAvgProfit">0</strong>
+              </div>
+              <div class="metric">
+                <span>重新买入</span>
+                <strong id="exploitRebuys">0</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p id="simInsight" class="sim-insight">剥削 Solver：GTO 基线 + 职业读牌（VPIP/PFR/F2CB/F2B）+ 翻前隔离/偷盲 + 翻后 C-Bet/Probe/Float + 河牌极化诈唬与抓诈。</p>
       </section>
 
       <section class="poker-table" aria-label="德州扑克牌桌">
@@ -99,9 +195,9 @@
           <div id="potChips" class="chip-rack" aria-label="底池筹码"></div>
           <div id="message" class="message">选择初始筹码，点击“新牌局”开始。</div>
         </div>
-      </section>
 
-      <section id="hero" class="hero-seat" aria-label="你的座位"></section>
+        <section id="hero" class="hero-seat" aria-label="你的座位"></section>
+      </section>
 
       <section class="play-panel" aria-label="操作区">
         <div class="action-panel">
@@ -129,6 +225,16 @@
     </main>
 
     <script src="./vendor/pokersolver.js"></script>
-    <script src="./game.js?v=20260619-13"></script>
+    <script src="./gto-core.js"></script>
+    <script src="./gto-charts.js"></script>
+    <script src="./gto-equity.js"></script>
+    <script src="./gto-solver.js"></script>
+    <script src="./shared/combo-index.js"></script>
+    <script src="./cfr/board-map.js"></script>
+    <script src="./cfr/loader.js"></script>
+    <script src="./cfr/full-loader.js"></script>
+    <script src="./cfr/bridge.js"></script>
+    <script src="./exploit-engine.js"></script>
+    <script src="./game.js?v=20260625-07"></script>
   </body>
 </html>
