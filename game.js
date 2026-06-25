@@ -41,8 +41,8 @@ const state = {
   playerCount: 4,
   gameMode: "normal",
   heroMode: "manual",
-  gtoSpeed: "step",
-  simPace: "step",
+  gtoSpeed: "auto",
+  simPace: "auto",
   simAutoRunning: false,
   awaitSimStep: false,
   awaitNextHand: false,
@@ -73,6 +73,9 @@ const state = {
   gtoLine: null,
   message: "选择初始筹码，点击“新牌局”开始。",
   actionLog: [],
+  handHistory: [],
+  currentHandRecord: null,
+  selectedHistoryId: null,
   equityCache: { key: "", values: new Map() },
   heroStats: {
     hands: 0,
@@ -154,6 +157,11 @@ const els = {
   betAmount: document.querySelector("#betAmount"),
   actionLog: document.querySelector("#actionLog"),
   heroRead: document.querySelector("#heroRead"),
+  handHistoryPanel: document.querySelector("#handHistoryPanel"),
+  historyCount: document.querySelector("#historyCount"),
+  historyHint: document.querySelector("#historyHint"),
+  historyList: document.querySelector("#historyList"),
+  historyDetail: document.querySelector("#historyDetail"),
 };
 
 function clamp(value, min, max) {
@@ -228,13 +236,19 @@ function syncSimPace() {
 function simActionDelay() {
   if (state.gtoSpeed === "turbo") return 0;
   if (state.gtoSpeed === "fast") return 180;
+  if (state.gtoSpeed === "auto") return 320;
   return 520;
 }
 
 function simHandDelay() {
   if (state.gtoSpeed === "turbo") return 60;
   if (state.gtoSpeed === "fast") return 420;
+  if (state.gtoSpeed === "auto") return 700;
   return 1100;
+}
+
+function simBetweenHandDelay() {
+  return isStepPace() ? 1400 : simHandDelay();
 }
 
 function clearSimStepState() {
@@ -248,10 +262,7 @@ function clearSimStepState() {
 function stopSimAuto(message = "演示已结束。") {
   state.simAutoRunning = false;
   clearSimStepState();
-  if (simTimer) {
-    clearTimeout(simTimer);
-    simTimer = null;
-  }
+  cancelScheduledSimHand();
   if (message) state.message = message;
   renderSimPanel();
   renderSimCommentary();
@@ -291,22 +302,24 @@ function startSimAuto() {
   clearSimStepState();
   const label = isDualMode() ? "GTO vs 剥削对比" : isGtoHeroMode() ? "职业 GTO" : "最优剥削";
   if (isStepPace()) {
-    state.message = `${label}步进演示：点击「下一步」推进每一手行动，并查看职业解说。`;
-    state.simCommentary = [{ key: "引导", value: "演示已开始。第一次点击将发新手牌；之后每次点击执行一个行动（含对手）。" }];
+    state.message = `${label}步进演示：点击「下一步」推进每一手行动，并查看职业解说。每手结束后会自动发下一手。`;
+    state.simCommentary = [{ key: "引导", value: "演示已开始。第一次点击将发新手牌；之后每次点击执行一个行动（含对手）。手牌之间会自动衔接。" }];
   } else {
-    state.message = `${label}：自动连播运行中…`;
+    state.message = `${label}持续模拟中… 自动跑完全桌并累计 BB/100，点击「停止模拟」可结束。`;
   }
   renderSimPanel();
   renderSimCommentary();
   render();
-  if (!isStepPace() && !state.active) {
+  if (!state.active) {
     beginHand();
     return;
   }
-  if (!isStepPace()) {
+  if (isAutoPace()) {
     const pending = state.players[state.actionIndex];
     if (pending && isAiPlayer(pending) && canAct(pending)) {
       scheduleAiAction(pending);
+    } else {
+      processActionLoop();
     }
   }
 }
@@ -342,6 +355,8 @@ function gtoContext() {
     preflopAggressor: state.preflopAggressor,
     gtoLine: state.gtoLine,
     playerCount: state.playerCount,
+    heroMode: state.heroMode,
+    isDualMode: isDualMode(),
     gtoSamples: state.gameMode === "study" ? 400 : 280,
     callAmount,
     minTargetFor,
@@ -535,7 +550,7 @@ function buildHandEndCommentary(message) {
   if (isExploitMode()) {
     lines.push({ key: "剥削累计", value: `${exploitLine >= 0 ? "+" : ""}${exploitLine}（${state.exploitStats.handsCompleted} 手）` });
   }
-  lines.push({ key: "提示", value: "点击「下一步」发下一手牌" });
+  lines.push({ key: "提示", value: "模拟会持续进行，手牌之间自动衔接；也可点「下一步」立即发牌" });
   return lines;
 }
 
@@ -576,15 +591,8 @@ function pauseSimForPlayer(player) {
 function executeSimStep() {
   if (!state.simAutoRunning || !isAutoSimMode()) return;
 
-  if (!state.active) {
-    aiPlayers().forEach((p) => {
-      if (p.stack <= 0) rebuyAiPlayer(p);
-    });
-    beginHand();
-    return;
-  }
-
-  if (state.awaitNextHand) {
+  if (state.awaitNextHand || !state.active) {
+    cancelScheduledSimHand();
     state.awaitNextHand = false;
     clearSimStepState();
     aiPlayers().forEach((p) => {
@@ -619,28 +627,41 @@ function executeSimStep() {
   processActionLoop();
 }
 
+function cancelScheduledSimHand() {
+  if (simTimer) {
+    clearTimeout(simTimer);
+    simTimer = null;
+  }
+}
+
 function scheduleAiAction(player) {
-  if (!state.simAutoRunning || !isAutoPace() || !isAiPlayer(player) || !canAct(player)) return;
-  if (simTimer) clearTimeout(simTimer);
+  if (!state.simAutoRunning || !isAutoPace() || !isAiPlayer(player)) return;
+  cancelScheduledSimHand();
   simTimer = setTimeout(() => {
     simTimer = null;
-    if (!state.simAutoRunning || !canAct(player)) return;
+    if (!state.simAutoRunning) return;
+    if (!canAct(player)) {
+      processActionLoop();
+      return;
+    }
     const decision = decideForAi(player);
     aiAction(player, decision);
   }, simActionDelay());
 }
 
 function scheduleNextSimHand() {
-  if (!state.simAutoRunning || !isAutoSimMode() || !isAutoPace()) return;
-  if (simTimer) clearTimeout(simTimer);
+  if (!state.simAutoRunning || !isAutoSimMode()) return;
+  cancelScheduledSimHand();
+  const delay = simBetweenHandDelay();
   simTimer = setTimeout(() => {
     simTimer = null;
     if (!state.simAutoRunning) return;
+    clearSimStepState();
     aiPlayers().forEach((player) => {
       if (player.stack <= 0) rebuyAiPlayer(player);
     });
     beginHand();
-  }, simHandDelay());
+  }, delay);
 }
 
 function updateAiStats(aiType) {
@@ -707,8 +728,8 @@ function renderSimPanel() {
 
   const running = state.simAutoRunning;
   const modeLabel = isDualMode() ? "GTO vs 剥削" : isGtoHeroMode() ? "GTO 模拟" : "剥削模拟";
-  const paceLabel = isStepPace() ? "步进演示" : "自动连播";
-  els.simToggleBtn.textContent = running ? `结束${modeLabel}` : `开始${paceLabel}`;
+  const paceLabel = isStepPace() ? "步进演示" : "持续模拟";
+  els.simToggleBtn.textContent = running ? `停止${modeLabel}` : `开始${paceLabel}`;
   els.simToggleBtn.classList.toggle("danger", running);
   if (els.simStepBtn) {
     els.simStepBtn.hidden = !running || !isStepPace();
@@ -721,8 +742,13 @@ function renderSimPanel() {
   if (typeof CfrFullLoader !== "undefined") parts.push(CfrFullLoader.statusText());
   else if (typeof CfrLoader !== "undefined") parts.push(CfrLoader.statusText());
   const cfrTag = parts.join(" · ");
-  const pace = isStepPace() ? "步进演示" : "自动连播";
-  els.simStatsStatus.textContent = running ? `${pace}中 · ${cfrTag}` : state.gtoStats.handsCompleted + state.exploitStats.handsCompleted > 0 ? `已结束 · ${cfrTag}` : cfrTag || "等待开始";
+  const pace = isStepPace() ? "步进演示" : "持续模拟";
+  const totalHands = state.gtoStats.handsCompleted + state.exploitStats.handsCompleted;
+  els.simStatsStatus.textContent = running
+    ? `${pace}中 · 已跑 ${Math.max(state.gtoStats.handsCompleted, state.exploitStats.handsCompleted)} 手 · ${cfrTag}`
+    : totalHands > 0
+      ? `已结束 · 共 ${Math.max(state.gtoStats.handsCompleted, state.exploitStats.handsCompleted)} 手 · ${cfrTag}`
+      : cfrTag || "等待开始";
 
   els.simStatsPanel.classList.toggle("dual-mode", isDualMode());
   els.simStatsPanel.classList.toggle("gto-only", isGtoHeroMode());
@@ -896,6 +922,246 @@ function addLog(line) {
   state.actionLog = state.actionLog.slice(0, 12);
 }
 
+const HISTORY_STREET_KEYS = ["preflop", "flop", "turn", "river"];
+const HISTORY_STREET_LABELS = { preflop: "翻牌前", flop: "翻牌", turn: "转牌", river: "河牌" };
+const MAX_HAND_HISTORY = 150;
+
+function streetKeyFromIndex(index) {
+  return HISTORY_STREET_KEYS[clamp(index, 0, 3)] || "preflop";
+}
+
+function serializeCard(card) {
+  if (!card) return null;
+  return { rank: card.rank, symbol: card.symbol, red: card.red, solver: card.solver };
+}
+
+function recordHandActionFromPlayer(player) {
+  if (!state.currentHandRecord || !player?.lastAction) return;
+  const street = streetKeyFromIndex(state.streetIndex);
+  state.currentHandRecord.streets[street].actions.push({
+    player: player.name,
+    action: player.lastAction,
+    pot: state.pot,
+  });
+}
+
+function createEmptyHandRecord() {
+  return {
+    id: state.handNumber,
+    blinds: { sb: state.smallBlind, bb: state.bigBlind },
+    dealer: state.players[state.dealerIndex]?.name || "",
+    players: [],
+    streets: {
+      preflop: { board: [], actions: [] },
+      flop: { board: [], actions: [] },
+      turn: { board: [], actions: [] },
+      river: { board: [], actions: [] },
+    },
+    result: null,
+  };
+}
+
+function startHandRecord(sbIndex, bbIndex) {
+  const record = createEmptyHandRecord();
+  record.players = state.players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    position: player.position,
+    holeCards: player.hand.map(serializeCard),
+    stackStart: player.stack + player.committed,
+  }));
+  const sb = state.players[sbIndex];
+  const bb = state.players[bbIndex];
+  record.streets.preflop.actions.push(
+    { player: sb.name, action: `小盲 ${state.smallBlind}`, pot: state.pot },
+    { player: bb.name, action: `大盲 ${state.bigBlind}`, pot: state.pot },
+  );
+  state.currentHandRecord = record;
+}
+
+function recordHandBoard() {
+  if (!state.currentHandRecord) return;
+  const board = state.community.map(serializeCard);
+  const street = streetKeyFromIndex(state.streetIndex);
+  if (street === "preflop") return;
+  state.currentHandRecord.streets[street].board = board;
+}
+
+function pushHandRecord(record) {
+  state.handHistory.unshift(record);
+  state.handHistory = state.handHistory.slice(0, MAX_HAND_HISTORY);
+  state.selectedHistoryId = record.id;
+}
+
+function finalizeHandRecordFold(winner, potAmount, summary) {
+  if (!state.currentHandRecord) return;
+  const record = state.currentHandRecord;
+  record.result = {
+    type: "fold",
+    winners: [{ name: winner.name, amount: potAmount, handName: null }],
+    finalBoard: state.community.map(serializeCard),
+    runoutBoards: [],
+    showdownPlayers: state.players.map((player) => ({
+      name: player.name,
+      holeCards: player.hand.map(serializeCard),
+      handName: player.id === winner.id ? "收池（未摊牌）" : player.folded ? "弃牌" : "—",
+      folded: player.folded,
+    })),
+    summary,
+    totalPot: potAmount,
+  };
+  pushHandRecord(record);
+  state.currentHandRecord = null;
+}
+
+function finalizeHandRecordShowdown(potAwards, boards, runCount, potWon, summary) {
+  if (!state.currentHandRecord) return;
+  const record = state.currentHandRecord;
+  const winnerMap = new Map();
+  potAwards.forEach((award) => {
+    award.winners.forEach((player) => {
+      const existing = winnerMap.get(player.id) || {
+        name: player.name,
+        amount: 0,
+        handName: translateHand(award.handNames.get(player.id)),
+      };
+      existing.amount += award.amount;
+      if (award.handNames.get(player.id)) {
+        existing.handName = translateHand(award.handNames.get(player.id));
+      }
+      winnerMap.set(player.id, existing);
+    });
+  });
+  record.result = {
+    type: "showdown",
+    winners: [...winnerMap.values()],
+    finalBoard: boards[0].map(serializeCard),
+    runoutBoards: runCount > 1 ? boards.map((board) => board.map(serializeCard)) : [],
+    showdownPlayers: activePlayers().map((player) => ({
+      name: player.name,
+      holeCards: player.hand.map(serializeCard),
+      handName: player.handLabel || "高牌",
+      folded: player.folded,
+    })),
+    summary,
+    totalPot: potWon,
+  };
+  pushHandRecord(record);
+  state.currentHandRecord = null;
+}
+
+function historyCardMarkup(card, compact = false) {
+  if (!card) return "";
+  const rank = (card.rank || "").replace("T", "10");
+  const cls = `hist-card${card.red ? " red" : ""}${compact ? " compact" : ""}`;
+  return `<span class="${cls}"><span class="hist-rank">${rank}</span><span class="hist-suit">${card.symbol}</span></span>`;
+}
+
+function historyBoardMarkup(cards) {
+  if (!cards?.length) return '<span class="hist-board-empty">—</span>';
+  return `<span class="hist-board">${cards.map((card) => historyCardMarkup(card, true)).join("")}</span>`;
+}
+
+function renderHistoryDetail(record) {
+  if (!els.historyDetail || !record) return;
+  const result = record.result;
+  const winnerText = result
+    ? result.winners.map((w) => `${w.name}${w.handName ? `（${w.handName}）` : ""} +${w.amount}`).join("；")
+    : "本手尚未结束";
+  const endType = result?.type === "fold" ? "无人跟注 / 弃牌收池" : result?.type === "showdown" ? "摊牌比牌" : "—";
+
+  const streetsHtml = HISTORY_STREET_KEYS.map((key) => {
+    const street = record.streets[key];
+    const actions = street.actions.length
+      ? street.actions.map((row) => `<li><strong>${row.player}</strong> ${row.action}<span>底池 ${row.pot}</span></li>`).join("")
+      : '<li class="muted">无行动</li>';
+    const board = key === "preflop" ? [] : street.board.length ? street.board : result?.finalBoard?.slice(0, key === "flop" ? 3 : key === "turn" ? 4 : 5) || [];
+    return `<section class="hist-street">
+      <div class="hist-street-head">
+        <strong>${HISTORY_STREET_LABELS[key]}</strong>
+        ${board.length ? historyBoardMarkup(board) : ""}
+      </div>
+      <ul class="hist-actions">${actions}</ul>
+    </section>`;
+  }).join("");
+
+  const playersHtml = (result?.showdownPlayers || record.players).map((player) => {
+    const cards = player.holeCards || [];
+    return `<div class="hist-player-row">
+      <span class="hist-player-name">${player.name}</span>
+      <span class="hist-player-cards">${cards.map((c) => historyCardMarkup(c)).join("")}</span>
+      <span class="hist-player-hand">${player.handName || "—"}</span>
+    </div>`;
+  }).join("");
+
+  const runoutHtml = result?.runoutBoards?.length
+    ? result.runoutBoards.map((board, index) => `<div class="hist-runout"><span>第 ${index + 1} 次</span>${historyBoardMarkup(board)}</div>`).join("")
+    : "";
+
+  els.historyDetail.innerHTML = `
+    <div class="hist-detail-head">
+      <strong>第 ${record.id} 手详情</strong>
+      <button type="button" class="hist-close-btn" data-history-close>收起</button>
+    </div>
+    <div class="hist-meta">
+      <span>盲注 ${record.blinds.sb}/${record.blinds.bb}</span>
+      <span>庄家 ${record.dealer}</span>
+      <span>底池 ${result?.totalPot ?? "—"}</span>
+      <span>${endType}</span>
+    </div>
+    <p class="hist-result">${winnerText}</p>
+    ${runoutHtml ? `<div class="hist-runouts">${runoutHtml}</div>` : ""}
+    <div class="hist-players">
+      <div class="hist-players-title">玩家底牌</div>
+      ${playersHtml}
+    </div>
+    <div class="hist-streets">${streetsHtml}</div>
+  `;
+  els.historyDetail.hidden = false;
+}
+
+function renderHandHistory() {
+  if (!els.historyList) return;
+  const count = state.handHistory.length;
+  if (els.historyCount) els.historyCount.textContent = `${count} 手`;
+  if (els.historyHint) els.historyHint.hidden = count > 0;
+
+  if (!count) {
+    els.historyList.innerHTML = '<div class="history-empty">暂无记录，开始打牌后会自动保存每一手。</div>';
+    if (els.historyDetail) els.historyDetail.hidden = true;
+    return;
+  }
+
+  els.historyList.innerHTML = state.handHistory
+    .map((record) => {
+      const selected = record.id === state.selectedHistoryId;
+      const result = record.result;
+      const tag = result?.type === "fold" ? "收池" : result?.type === "showdown" ? "摊牌" : "进行中";
+      const winner = result?.winners?.[0];
+      const sub = winner
+        ? `${winner.name}${winner.handName ? ` · ${winner.handName}` : ""} · ${result.totalPot}`
+        : "进行中";
+      return `<button type="button" class="history-item${selected ? " selected" : ""}" data-history-id="${record.id}" role="option" aria-selected="${selected}">
+        <span class="history-item-tag">${tag}</span>
+        <span class="history-item-main">第 ${record.id} 手</span>
+        <span class="history-item-sub">${sub}</span>
+      </button>`;
+    })
+    .join("");
+
+  const selected = state.handHistory.find((record) => record.id === state.selectedHistoryId) || state.handHistory[0];
+  if (selected) renderHistoryDetail(selected);
+  else if (els.historyDetail) els.historyDetail.hidden = true;
+}
+
+function selectHistoryHand(handId) {
+  const id = Number(handId);
+  const record = state.handHistory.find((entry) => entry.id === id);
+  if (!record) return;
+  state.selectedHistoryId = id;
+  renderHandHistory();
+}
+
 function spend(player, amount) {
   const paid = Math.max(0, Math.min(player.stack, Math.floor(amount)));
   player.stack -= paid;
@@ -991,6 +1257,9 @@ function newSession() {
   state.awaitHero = false;
   state.revealed = false;
   state.actionLog = [];
+  state.handHistory = [];
+  state.currentHandRecord = null;
+  state.selectedHistoryId = null;
   state.equityCache = { key: "", values: new Map() };
   state.heroStats = {
     hands: 0,
@@ -1006,9 +1275,9 @@ function newSession() {
   resetSimStats();
   if (hero()) hero().name = heroDisplayName();
   let modeHint = "新牌局已建立。";
-  if (isDualMode()) modeHint = "GTO vs 剥削对比，点击「开始步进演示」逐步观看并阅读解说。";
-  else if (isGtoHeroMode()) modeHint = "GTO 演示模式，点击「开始步进演示」逐步观看并阅读解说。";
-  else if (state.heroMode === "exploit") modeHint = "剥削演示模式，点击「开始步进演示」逐步观看并阅读解说。";
+  if (isDualMode()) modeHint = "GTO vs 剥削对比，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
+  else if (isGtoHeroMode()) modeHint = "GTO 模式，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
+  else if (state.heroMode === "exploit") modeHint = "剥削模式，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
   else if (state.gameMode === "study") modeHint = "教学模式已开启：全明牌并显示实时胜率。";
   state.message = `${modeHint} 点击“下一手牌”开始。`;
   renderSimPanel();
@@ -1017,6 +1286,7 @@ function newSession() {
 
 function beginHand() {
   if (state.active) return;
+  cancelScheduledSimHand();
   if (!state.players.length) {
     newSession();
   }
@@ -1076,6 +1346,7 @@ function beginHand() {
   state.players[bb].lastAction = `大盲 ${state.bigBlind}`;
   addLog(`${state.players[sb].name} 小盲 ${state.smallBlind}`);
   addLog(`${state.players[bb].name} 大盲 ${state.bigBlind}`);
+  startHandRecord(sb, bb);
 
   state.actionIndex = nextIndex(bb, (player) => canAct(player));
   setSuggestedBet();
@@ -1237,6 +1508,7 @@ function render(message = "") {
   }
   renderSimPanel();
   renderSimCommentary();
+  renderHandHistory();
 }
 
 function translateHand(name) {
@@ -1252,12 +1524,15 @@ function solvePlayer(player) {
 
 function awardByFold() {
   const winner = activePlayers()[0];
-  winner.stack += state.pot;
+  const potAmount = state.pot;
+  winner.stack += potAmount;
   winner.winner = true;
   winner.lastAction = "赢得底池";
-  addLog(`${winner.name} 赢得底池 ${state.pot}`);
+  addLog(`${winner.name} 赢得底池 ${potAmount}`);
+  const summary = `${winner.name} 逼退全场，拿下 ${potAmount}。`;
+  finalizeHandRecordFold(winner, potAmount, summary);
   state.pot = 0;
-  endHand(`${winner.name} 逼退全场，拿下这一池。`);
+  endHand(summary);
 }
 
 function showdown() {
@@ -1279,10 +1554,12 @@ function showdown() {
     }
   });
   const potWon = potAwards.reduce((sum, award) => sum + award.amount, 0);
-  state.pot = 0;
   const winText = formatPotAwards(potAwards, runCount);
   addLog(winText || `摊牌结算 ${potWon}`);
-  endHand(`${runCount > 1 ? "All-in 发两次：" : ""}${winText} 赢下本手牌。`);
+  const summary = `${runCount > 1 ? "All-in 发两次：" : ""}${winText} 赢下本手牌。`;
+  finalizeHandRecordShowdown(potAwards, boards, runCount, potWon, summary);
+  state.pot = 0;
+  endHand(summary);
 }
 
 function shouldRunTwice() {
@@ -1389,13 +1666,13 @@ function endHand(message) {
   state.dealerIndex = nextIndex(state.dealerIndex);
   updateSimStats();
   if (state.simAutoRunning && isAutoSimMode() && isStepPace()) {
-    state.awaitNextHand = true;
-    state.awaitSimStep = true;
     state.simStepKind = "handend";
     state.simCommentary = buildHandEndCommentary(message);
-    state.message = `本手结束 — 点击「下一步」发新手`;
+    const delaySec = (simBetweenHandDelay() / 1000).toFixed(1);
+    state.message = `本手结束 — ${delaySec} 秒后自动发下一手（也可点「下一步」立即继续）`;
     renderSimCommentary();
     render(state.message);
+    scheduleNextSimHand();
     return;
   }
   render(message);
@@ -1436,6 +1713,7 @@ function advanceStreet() {
     state.community.push(draw());
     addLog(state.streetIndex === 2 ? "发出转牌" : "发出河牌");
   }
+  recordHandBoard();
 
   state.actionIndex = nextIndex(state.dealerIndex, (player) => canAct(player));
   setSuggestedBet();
@@ -1448,7 +1726,7 @@ function advanceStreet() {
 
 function processActionLoop() {
   let guard = 0;
-  while (state.active && guard < 80) {
+  while (state.active && guard < 240) {
     guard += 1;
     if (activePlayers().length === 1) {
       awardByFold();
@@ -1503,13 +1781,21 @@ function processActionLoop() {
     applyAction(player, decision);
     state.actionIndex = nextIndex(state.actionIndex, (candidate) => canAct(candidate));
   }
+  if (state.simAutoRunning && isAutoSimMode() && isAutoPace()) {
+    state.active = false;
+    state.awaitHero = false;
+    state.currentHandRecord = null;
+    scheduleNextSimHand();
+    render("本手异常结束，自动进入下一手…");
+    return;
+  }
   render("牌局状态已暂停，请开始下一手牌。");
 }
 
 function applyAction(player, decision) {
   const call = callAmount(player);
   recordGtoLine(player, decision);
-  if (typeof ExploitEngine !== "undefined" && isExploitMode() && !player.aiType) {
+  if (typeof ExploitEngine !== "undefined" && isExploitMode() && player.aiType !== "exploit") {
     ExploitEngine.recordAction(player, decision, gtoContext());
   }
 
@@ -1518,6 +1804,7 @@ function applyAction(player, decision) {
     player.lastAction = "弃牌";
     state.acted.add(player.id);
     addLog(`${player.name} 弃牌`);
+    recordHandActionFromPlayer(player);
     return;
   }
 
@@ -1525,6 +1812,7 @@ function applyAction(player, decision) {
     player.lastAction = "看牌";
     state.acted.add(player.id);
     addLog(`${player.name} 看牌`);
+    recordHandActionFromPlayer(player);
     return;
   }
 
@@ -1533,6 +1821,7 @@ function applyAction(player, decision) {
     player.lastAction = player.allIn ? `All-in ${paid}` : `跟注 ${paid}`;
     state.acted.add(player.id);
     addLog(`${player.name} ${player.lastAction}`);
+    recordHandActionFromPlayer(player);
     return;
   }
 
@@ -1558,6 +1847,7 @@ function applyAction(player, decision) {
     if (paid <= call && call > 0) {
       player.lastAction = `跟注 ${paid}`;
     }
+    recordHandActionFromPlayer(player);
   }
 }
 
@@ -1996,6 +2286,19 @@ function handleAllIn() {
   heroAction({ type: "raise", target: maxTargetFor(hero()), label: "All-in 到" });
 }
 
+els.historyList?.addEventListener("click", (event) => {
+  const item = event.target.closest("[data-history-id]");
+  if (item) selectHistoryHand(item.dataset.historyId);
+});
+
+els.historyDetail?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-history-close]")) {
+    state.selectedHistoryId = null;
+    if (els.historyDetail) els.historyDetail.hidden = true;
+    renderHandHistory();
+  }
+});
+
 els.newSessionBtn.addEventListener("click", newSession);
 els.newHandBtn.addEventListener("click", beginHand);
 els.heroModeSelect.addEventListener("change", () => {
@@ -2007,9 +2310,9 @@ els.heroModeSelect.addEventListener("change", () => {
   renderSimPanel();
   const hints = {
     manual: "已切换为手动操作。",
-    gto: "已切换为 GTO 演示，点击「开始步进演示」逐步观看。",
-    exploit: "已切换为剥削演示，点击「开始步进演示」逐步观看。",
-    dual: "已切换为 GTO vs 剥削对比，点击「开始步进演示」逐步观看。",
+    gto: "已切换为 GTO，点击「开始持续模拟」自动跑局。",
+    exploit: "已切换为剥削，点击「开始持续模拟」自动跑局。",
+    dual: "已切换为 GTO vs 剥削对比，点击「开始持续模拟」自动跑局。",
   };
   render(hints[state.heroMode] || hints.manual);
 });

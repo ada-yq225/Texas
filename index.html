@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>单机德州扑克</title>
-    <link rel="stylesheet" href="./styles.css?v=20260625-06" />
+    <link rel="stylesheet" href="./styles.css?v=20260625-10" />
   </head>
   <body>
     <main class="app-shell">
@@ -84,8 +84,8 @@
         <label class="field">
           <span>演示节奏</span>
           <select id="gtoSpeedSelect">
-            <option value="step" selected>点击步进</option>
-            <option value="auto">自动连播</option>
+            <option value="auto" selected>持续自动（长期收益）</option>
+            <option value="step">点击步进（带解说）</option>
           </select>
         </label>
         <label class="field">
@@ -101,14 +101,35 @@
         <button id="newHandBtn">下一手牌</button>
       </section>
 
-      <section id="simCommentaryPanel" class="sim-commentary-panel" hidden aria-label="职业解说">
-        <div class="sim-commentary-head">
-          <span class="eyebrow">Pro Commentary</span>
-          <strong>职业解说</strong>
+      <section class="poker-table" aria-label="德州扑克牌桌">
+        <div id="opponents" class="opponents"></div>
+
+        <div class="center-felt">
+          <div class="board-head">
+            <div>
+              <span class="eyebrow">Community</span>
+              <strong id="boardState">等待发牌</strong>
+            </div>
+            <div class="dealer-chip" id="dealerLabel">D</div>
+          </div>
+          <div id="community" class="community cards"></div>
+          <div id="runoutBoards" class="runout-boards"></div>
+          <div id="potChips" class="chip-rack" aria-label="底池筹码"></div>
+          <div id="message" class="message">选择初始筹码，点击“新牌局”开始。</div>
         </div>
-        <p id="simCommentaryAction" class="sim-commentary-action">点击「下一步」开始演示</p>
-        <div id="simCommentaryBody" class="sim-commentary-body"></div>
+
+        <section id="hero" class="hero-seat" aria-label="你的座位"></section>
       </section>
+
+      <aside class="side-rail" aria-label="操作与数据">
+        <section id="simCommentaryPanel" class="sim-commentary-panel" hidden aria-label="职业解说">
+          <div class="sim-commentary-head">
+            <span class="eyebrow">Pro Commentary</span>
+            <strong>职业解说</strong>
+          </div>
+          <p id="simCommentaryAction" class="sim-commentary-action">点击「下一步」开始演示</p>
+          <div id="simCommentaryBody" class="sim-commentary-body"></div>
+        </section>
 
       <section id="simStatsPanel" class="sim-stats-panel" hidden aria-label="长期收益对比">
         <div class="sim-stats-head">
@@ -179,24 +200,17 @@
         <p id="simInsight" class="sim-insight">剥削 Solver：GTO 基线 + 职业读牌（VPIP/PFR/F2CB/F2B）+ 翻前隔离/偷盲 + 翻后 C-Bet/Probe/Float + 河牌极化诈唬与抓诈。</p>
       </section>
 
-      <section class="poker-table" aria-label="德州扑克牌桌">
-        <div id="opponents" class="opponents"></div>
-
-        <div class="center-felt">
-          <div class="board-head">
-            <div>
-              <span class="eyebrow">Community</span>
-              <strong id="boardState">等待发牌</strong>
-            </div>
-            <div class="dealer-chip" id="dealerLabel">D</div>
+      <section id="handHistoryPanel" class="hand-history-panel" aria-label="历史回顾">
+        <div class="history-head">
+          <div>
+            <span class="eyebrow">Hand History</span>
+            <strong>历史回顾</strong>
           </div>
-          <div id="community" class="community cards"></div>
-          <div id="runoutBoards" class="runout-boards"></div>
-          <div id="potChips" class="chip-rack" aria-label="底池筹码"></div>
-          <div id="message" class="message">选择初始筹码，点击“新牌局”开始。</div>
+          <span id="historyCount" class="history-count">0 手</span>
         </div>
-
-        <section id="hero" class="hero-seat" aria-label="你的座位"></section>
+        <p id="historyHint" class="history-hint">每手牌结束后自动记录。点击任一手查看翻前/翻后行动与赢牌详情。</p>
+        <div id="historyList" class="history-list" role="listbox" aria-label="手牌列表"></div>
+        <div id="historyDetail" class="history-detail" hidden></div>
       </section>
 
       <section class="play-panel" aria-label="操作区">
@@ -222,6 +236,7 @@
           <div id="actionLog" class="action-log"></div>
         </aside>
       </section>
+      </aside>
     </main>
 
     <script src="./vendor/pokersolver.js"></script>
@@ -234,7 +249,7 @@
     <script src="./cfr/loader.js"></script>
     <script src="./cfr/full-loader.js"></script>
     <script src="./cfr/bridge.js"></script>
-    <script src="./exploit-engine.js"></script>
-    <script src="./game.js?v=20260625-07"></script>
+    <script src="./exploit-engine.js?v=20260625-11"></script>
+    <script src="./game.js?v=20260625-11"></script>
   </body>
 </html>
