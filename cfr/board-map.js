@@ -148,20 +148,72 @@ const CfrBoardMap = (() => {
     return s;
   }
 
-  function nearestKey(community, keys, rankMap) {
-    if (!community?.length) return keys[0];
+  const MIN_BOARD_SCORE = { flop: 12, turn: 11, river: 10 };
+  const MIN_BOARD_MARGIN = 1.5;
+
+  function nearestKeyWithScore(community, keys, rankMap) {
+    if (!community?.length) return { key: keys[0], score: 0, margin: 0, live: analyze([]) };
     const live = analyze(community);
     let best = keys[0];
     let bestScore = -Infinity;
+    let secondScore = -Infinity;
     keys.forEach((key) => {
       const tmpl = templateFeatures(rankMap[key] || []);
       const sc = scoreTemplate(live, tmpl);
       if (sc > bestScore) {
+        secondScore = bestScore;
         bestScore = sc;
         best = key;
+      } else if (sc > secondScore) {
+        secondScore = sc;
       }
     });
-    return best;
+    return {
+      key: best,
+      score: bestScore,
+      margin: bestScore - (Number.isFinite(secondScore) ? secondScore : bestScore),
+      live,
+      tmpl: templateFeatures(rankMap[best] || []),
+    };
+  }
+
+  function nearestKey(community, keys, rankMap) {
+    return nearestKeyWithScore(community, keys, rankMap).key;
+  }
+
+  function streetMeta(streetIndex) {
+    if (streetIndex === 1) return { street: "flop", keys: FLOP_KEYS, rankMap: FLOP_RANKS };
+    if (streetIndex === 2) return { street: "turn", keys: TURN_KEYS, rankMap: TURN_RANKS };
+    return { street: "river", keys: RIVER_KEYS, rankMap: RIVER_RANKS };
+  }
+
+  function evaluateCfrLookup(community, streetIndex, subgameKey, availableFiles) {
+    const { street, keys, rankMap } = streetMeta(streetIndex);
+    if (!subgameKey) return { use: false, reason: "no_subgame" };
+    if (!TRAINED_SUBGAMES[street]?.has(subgameKey)) return { use: false, reason: "untrained_subgame" };
+
+    const prefix = `${subgameKey}_`;
+    const suffixes = (availableFiles || [])
+      .filter((f) => f.startsWith(prefix) && f.endsWith(".json"))
+      .map((f) => f.slice(prefix.length, -5));
+    const allowed = keys.filter((k) => suffixes.includes(k));
+    const pool = allowed.length ? allowed : keys;
+    if (!pool.length) return { use: false, reason: "no_board_pool" };
+
+    const match = nearestKeyWithScore(community, pool, rankMap);
+    const minScore = MIN_BOARD_SCORE[street] || 11;
+    const boardInfo = { live: formatBoard(community), tmpl: match.key, approx: formatBoard(community) !== match.key };
+
+    if (match.live.paired !== match.tmpl.paired) {
+      return { use: false, boardKey: match.key, score: match.score, margin: match.margin, boardInfo, reason: "paired_mismatch" };
+    }
+    if (match.score < minScore) {
+      return { use: false, boardKey: match.key, score: match.score, margin: match.margin, boardInfo, reason: "low_board_score" };
+    }
+    if (pool.length > 1 && match.margin < MIN_BOARD_MARGIN) {
+      return { use: false, boardKey: match.key, score: match.score, margin: match.margin, boardInfo, reason: "ambiguous_board" };
+    }
+    return { use: true, boardKey: match.key, score: match.score, margin: match.margin, boardInfo, reason: "ok" };
   }
 
   function classify(community) {
@@ -223,17 +275,10 @@ const CfrBoardMap = (() => {
   }
 
   function boardKeyForSubgame(community, streetIndex, subgameKey, availableFiles) {
-    const prefix = `${subgameKey}_`;
-    const suffixes = (availableFiles || [])
-      .filter((f) => f.startsWith(prefix) && f.endsWith(".json"))
-      .map((f) => f.slice(prefix.length, -5));
-    if (!suffixes.length) {
-      return streetIndex === 1 ? flopKey(community) : streetIndex === 2 ? turnKey(community) : riverKey(community);
-    }
-    const rankMap = streetIndex === 1 ? FLOP_RANKS : streetIndex === 2 ? TURN_RANKS : RIVER_RANKS;
-    const keys = streetIndex === 1 ? FLOP_KEYS : streetIndex === 2 ? TURN_KEYS : RIVER_KEYS;
-    const allowed = keys.filter((k) => suffixes.includes(k));
-    return nearestKey(community, allowed.length ? allowed : keys, rankMap);
+    const lookup = evaluateCfrLookup(community, streetIndex, subgameKey, availableFiles);
+    if (lookup.use) return lookup.boardKey;
+    const { keys, rankMap } = streetMeta(streetIndex);
+    return nearestKey(community, keys, rankMap);
   }
 
   return {
@@ -241,12 +286,15 @@ const CfrBoardMap = (() => {
     turnKey,
     riverKey,
     nearestKey,
+    nearestKeyWithScore,
     classify,
     formatBoard,
     lookupLabel,
     subgamePrefix,
     boardKeyForSubgame,
+    evaluateCfrLookup,
     TRAINED_SUBGAMES,
     FLOP_KEYS,
+    MIN_BOARD_SCORE,
   };
 })();

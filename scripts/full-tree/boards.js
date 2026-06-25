@@ -40,62 +40,17 @@ function boardKey(cards) {
   return cards.join("");
 }
 
-function classifyLiveBoard(community) {
-  if (community.length < 3) return "unknown";
-  const suits = community.reduce((a, c) => { a[c.suit || c[1]] = (a[c.suit || c[1]] || 0) + 1; return a; }, {});
-  const maxS = Math.max(...Object.values(suits));
-  const ranks = community.map((c) => c.rank || c[0]);
-  const paired = new Set(ranks).size < ranks.length;
-  const high = ranks.some((r) => ["A", "K", "Q"].includes(r));
-  if (maxS >= 3) return "monotone";
-  if (paired) return "paired";
-  if (maxS >= 2 && high) return "wet";
-  if (high) return "dry_ahigh";
-  return "dry_low";
-}
-
-function nearestFlopKey(community) {
-  const cat = classifyLiveBoard(community);
-  const map = {
-    dry_ahigh: "Ah72r",
-    dry_low: "low765",
-    wet: "JhT9ss",
-    paired: "paired88K",
-    monotone: "T95mono",
-  };
-  return map[cat] || "Ah72r";
-}
-
-function nearestTurnKey(community) {
-  const cat = classifyLiveBoard(community);
-  const map = {
-    dry_ahigh: "Ah72_4",
-    dry_low: "low765_4",
-    wet: "JhT9_J",
-    paired: "pr88K_A",
-    monotone: "T95m_8",
-  };
-  return map[cat] || "Ah72_4";
-}
-
-function nearestRiverKey(community) {
-  const cat = classifyLiveBoard(community);
-  const map = {
-    dry_ahigh: "Ah72_4_9",
-    dry_low: "Kh95_T_2",
-    wet: "JhT9_J_8",
-    paired: "pr88K_A_5",
-    monotone: "T95m_8_2",
-  };
-  return map[cat] || "Ah72_4_9";
-}
+const {
+  nearestFlopKey,
+  nearestTurnKey,
+  nearestRiverKey,
+} = require("./board-scoring");
 
 module.exports = {
   FLOP_BOARDS,
   TURN_BOARDS,
   RIVER_BOARDS,
   boardKey,
-  classifyLiveBoard,
   nearestFlopKey,
   nearestTurnKey,
   nearestRiverKey,

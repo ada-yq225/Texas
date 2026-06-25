@@ -76,11 +76,11 @@ const CfrBridge = (() => {
     if (!subgameKey) return null;
 
     const lists = typeof CfrFullLoader.getManifest === "function" ? CfrFullLoader.getManifest()?.files?.[street] : null;
-    const boardKey = lists
-      ? CfrBoardMap.boardKeyForSubgame(ctx.community, ctx.streetIndex, subgameKey, lists)
-      : (street === "flop" ? CfrBoardMap.flopKey(ctx.community) : street === "turn" ? CfrBoardMap.turnKey(ctx.community) : CfrBoardMap.riverKey(ctx.community));
+    const lookup = CfrBoardMap.evaluateCfrLookup(ctx.community, ctx.streetIndex, subgameKey, lists || []);
+    if (!lookup.use) return null;
 
-    const boardInfo = CfrBoardMap.lookupLabel(ctx.community, ctx.streetIndex);
+    const boardKey = lookup.boardKey;
+    const boardInfo = lookup.boardInfo || CfrBoardMap.lookupLabel(ctx.community, ctx.streetIndex);
     boardInfo.tmpl = boardKey;
     const action = CfrFullLoader.lookupComboSync({
       street,
@@ -159,6 +159,12 @@ const CfrBridge = (() => {
     if (typeof CfrLoader === "undefined" || !CfrLoader.isReady()) return null;
     const subgame = CfrLoader.subgameKey(profile, ctx.streetIndex);
     if (!subgame) return null;
+
+    const street = ctx.streetIndex === 1 ? "flop" : ctx.streetIndex === 2 ? "turn" : "river";
+    const bucketLists = typeof CfrLoader.getManifest === "function" ? CfrLoader.getManifest()?.files?.[street] : null;
+    const bucketLookup = CfrBoardMap.evaluateCfrLookup(ctx.community, ctx.streetIndex, subgame, bucketLists || []);
+    if (!bucketLookup.use) return null;
+
     const bucket = heroBucket(player, ctx);
     const history = streetHistory(ctx).replace(/bet25/g, "bet33").replace(/bet50/g, "bet66");
     const action = CfrLoader.lookup({ subgame, bucket, history, seed: `cfr:${ctx.handNumber}:${bucket}:${history}` });
