@@ -155,6 +155,27 @@ const CfrBridge = (() => {
     return bucket;
   }
 
+  function tryMultiwayPostflop(player, ctx, profile) {
+    if (ctx.activePlayers().length < 3) return null;
+    if (ctx.streetIndex !== 1) return null;
+    if (typeof CfrLoader === "undefined" || !CfrLoader.isReady()) return null;
+
+    const subgame = CfrBoardMap.subgamePrefixMultiway(profile, ctx.streetIndex);
+    if (!subgame) return null;
+
+    const lookup = CfrBoardMap.evaluateMwCfrLookup(ctx.community, ctx.streetIndex, subgame);
+    if (!lookup.use) return null;
+
+    const bucket = heroBucket(player, ctx);
+    const history = streetHistory(ctx).replace(/bet25/g, "bet33").replace(/bet50/g, "bet66").replace(/bet100/g, "bet66");
+    const action = CfrLoader.lookup({ subgame, bucket, history, seed: `mw:${ctx.handNumber}:${bucket}:${history}` });
+    if (!action) return null;
+
+    const boardInfo = lookup.boardInfo || CfrBoardMap.lookupLabel(ctx.community, ctx.streetIndex);
+    const boardTag = boardInfo.approx ? `牌面${boardInfo.live}≈${boardInfo.tmpl}` : `牌面${boardInfo.live}`;
+    return cfrToDecision(action, player, ctx, `CFR3W ${subgame} · ${boardTag}`);
+  }
+
   function tryBucketPostflop(player, ctx, profile) {
     if (typeof CfrLoader === "undefined" || !CfrLoader.isReady()) return null;
     const subgame = CfrLoader.subgameKey(profile, ctx.streetIndex);
@@ -175,7 +196,7 @@ const CfrBridge = (() => {
   }
 
   function tryPostflop(player, ctx, profile) {
-    if (!isHeadsUp(ctx)) return null;
+    if (!isHeadsUp(ctx)) return tryMultiwayPostflop(player, ctx, profile);
     return tryFullPostflop(player, ctx, profile) || tryBucketPostflop(player, ctx, profile);
   }
 

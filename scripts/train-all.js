@@ -331,20 +331,48 @@ function main() {
     ["river_srp_ip", { pot: 12, stacks: [44, 44], firstPlayer: 1, seed: 11 }, 60000, "river"],
     ["river_srp_oop", { pot: 12, stacks: [44, 44], firstPlayer: 0, seed: 12 }, 60000, "river"],
     ["river_3bp_ip", { pot: 18, stacks: [38, 38], firstPlayer: 1, seed: 13 }, 50000, "river"],
+    ["river_3bp_oop", { pot: 18, stacks: [38, 38], firstPlayer: 0, seed: 14 }, 50000, "river"],
     ["turn_srp_ip", { pot: 9, stacks: [46, 46], firstPlayer: 1, seed: 21 }, 45000, "turn"],
+    ["turn_srp_oop", { pot: 9, stacks: [46, 46], firstPlayer: 0, seed: 22 }, 45000, "turn"],
+    ["turn_3bp_ip", { pot: 9, stacks: [46, 46], firstPlayer: 1, seed: 23 }, 45000, "turn"],
+    ["turn_3bp_oop", { pot: 9, stacks: [46, 46], firstPlayer: 0, seed: 24 }, 45000, "turn"],
     ["flop_srp_ip", { pot: 6.5, stacks: [48, 48], firstPlayer: 1, seed: 31 }, 40000, "flop"],
-    ["flop_3bp_oop", { pot: 10, stacks: [42, 42], firstPlayer: 0, seed: 32 }, 40000, "flop"],
+    ["flop_srp_oop", { pot: 6.5, stacks: [48, 48], firstPlayer: 0, seed: 32 }, 40000, "flop"],
+    ["flop_3bp_ip", { pot: 10, stacks: [42, 42], firstPlayer: 1, seed: 33 }, 40000, "flop"],
+    ["flop_3bp_oop", { pot: 10, stacks: [42, 42], firstPlayer: 0, seed: 34 }, 40000, "flop"],
   ];
 
-  const bundle = { version: 1, subgames: {} };
+  const bundlePath = path.join(OUT, "bundle.json");
+  const bundle = fs.existsSync(bundlePath)
+    ? JSON.parse(fs.readFileSync(bundlePath, "utf8"))
+    : { version: 2, subgames: {} };
+
   configs.forEach(([name, cfg, iters, street]) => {
+    const filePath = path.join(OUT, `${name}.json`);
+    if (fs.existsSync(filePath)) {
+      bundle.subgames[name] = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      console.log(`  ${name}: skip (exists)`);
+      return;
+    }
     bundle.subgames[name] = trainSubgame(name, cfg, iters, street);
-    fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify(bundle.subgames[name]));
+    fs.writeFileSync(filePath, JSON.stringify(bundle.subgames[name]));
   });
 
-  bundle.subgames.preflop_hu = trainPreflopHu(80000);
-  fs.writeFileSync(path.join(OUT, "preflop_hu.json"), JSON.stringify(bundle.subgames.preflop_hu));
-  fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
+  const pfPath = path.join(OUT, "preflop_hu.json");
+  if (fs.existsSync(pfPath)) {
+    bundle.subgames.preflop_hu = JSON.parse(fs.readFileSync(pfPath, "utf8"));
+  } else {
+    bundle.subgames.preflop_hu = trainPreflopHu(80000);
+    fs.writeFileSync(pfPath, JSON.stringify(bundle.subgames.preflop_hu));
+  }
+
+  ["flop_mw_srp", "flop_mw_3bp"].forEach((name) => {
+    const filePath = path.join(OUT, `${name}.json`);
+    if (fs.existsSync(filePath)) bundle.subgames[name] = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  });
+
+  bundle.version = 2;
+  fs.writeFileSync(bundlePath, JSON.stringify(bundle));
 
   console.log(`\nWrote ${Object.keys(bundle.subgames).length} CFR files to data/cfr/`);
 }

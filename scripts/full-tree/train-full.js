@@ -246,6 +246,7 @@ function main() {
     ["river_srp_ip", { pot: 12, stacks: [44, 44], firstPlayer: 1, seed: 101 }],
     ["river_srp_oop", { pot: 12, stacks: [44, 44], firstPlayer: 0, seed: 102 }],
     ["river_3bp_ip", { pot: 18, stacks: [38, 38], firstPlayer: 1, seed: 103 }],
+    ["river_3bp_oop", { pot: 18, stacks: [38, 38], firstPlayer: 0, seed: 104 }],
   ];
 
   manifest.subgames.river = {};
@@ -260,9 +261,14 @@ function main() {
 
   manifest.subgames.turn = {};
   Object.entries(TURN_BOARDS).forEach(([bkey, board]) => {
-    ["turn_srp_ip", "turn_3bp_ip"].forEach((prefix) => {
+    [
+      ["turn_srp_ip", { pot: 9, stacks: [46, 46], firstPlayer: 1 }],
+      ["turn_srp_oop", { pot: 9, stacks: [46, 46], firstPlayer: 0 }],
+      ["turn_3bp_ip", { pot: 9, stacks: [46, 46], firstPlayer: 1 }],
+      ["turn_3bp_oop", { pot: 9, stacks: [46, 46], firstPlayer: 0 }],
+    ].forEach(([prefix, base]) => {
       const name = `${prefix}_${bkey}`;
-      const cfg = { pot: 9, stacks: [46, 46], firstPlayer: 1, seed: 200 + bkey.length };
+      const cfg = { ...base, seed: 200 + bkey.length + prefix.length };
       const sg = trainComboSubgame(name, cfg, 14000, board, 8);
       manifest.subgames.turn[name] = sg;
       fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify(sg));
@@ -271,14 +277,14 @@ function main() {
 
   manifest.subgames.flop = {};
   Object.entries(FLOP_BOARDS).forEach(([bkey, board]) => {
-    ["flop_srp_ip", "flop_3bp_oop"].forEach((prefix) => {
+    [
+      ["flop_srp_ip", { pot: 6.5, stacks: [48, 48], firstPlayer: 1 }],
+      ["flop_srp_oop", { pot: 6.5, stacks: [48, 48], firstPlayer: 0 }],
+      ["flop_3bp_ip", { pot: 10, stacks: [42, 42], firstPlayer: 1 }],
+      ["flop_3bp_oop", { pot: 10, stacks: [42, 42], firstPlayer: 0 }],
+    ].forEach(([prefix, base]) => {
       const name = `${prefix}_${bkey}`;
-      const cfg = {
-        pot: prefix.includes("3bp") ? 10 : 6.5,
-        stacks: [48, 48],
-        firstPlayer: prefix.includes("oop") ? 0 : 1,
-        seed: 300 + bkey.length,
-      };
+      const cfg = { ...base, seed: 300 + bkey.length + prefix.length };
       const sg = trainComboSubgame(name, cfg, 12000, board, 10);
       manifest.subgames.flop[name] = sg;
       fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify(sg));

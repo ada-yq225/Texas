@@ -11,7 +11,7 @@ const CfrFullLoader = (() => {
     if (manifest) return manifest;
     status = "loading";
     try {
-      const res = await fetch(`${base}/manifest.json?v=2`);
+      const res = await fetch(`${base}/manifest.json?v=3`);
       if (!res.ok) throw new Error(`manifest ${res.status}`);
       manifest = await res.json();
       status = "ready";

@@ -250,28 +250,57 @@ const CfrBoardMap = (() => {
   }
 
   const TRAINED_SUBGAMES = {
-    flop: new Set(["flop_srp_ip", "flop_3bp_oop"]),
-    turn: new Set(["turn_srp_ip", "turn_3bp_ip"]),
-    river: new Set(["river_srp_ip", "river_srp_oop", "river_3bp_ip"]),
+    flop: new Set(["flop_srp_ip", "flop_srp_oop", "flop_3bp_ip", "flop_3bp_oop"]),
+    turn: new Set(["turn_srp_ip", "turn_srp_oop", "turn_3bp_ip", "turn_3bp_oop"]),
+    river: new Set(["river_srp_ip", "river_srp_oop", "river_3bp_ip", "river_3bp_oop"]),
   };
+
+  const TRAINED_MW_SUBGAMES = new Set(["flop_mw_srp", "flop_mw_3bp"]);
 
   function subgamePrefix(profile, streetIndex) {
     const ip = profile.isIp;
     const is3bp = profile.pot === "3bet" || profile.pot === "4bet";
     let key = null;
     if (streetIndex === 1) {
-      if (is3bp) key = "flop_3bp_oop";
-      else if (ip) key = "flop_srp_ip";
+      if (is3bp) key = ip ? "flop_3bp_ip" : "flop_3bp_oop";
+      else key = ip ? "flop_srp_ip" : "flop_srp_oop";
     } else if (streetIndex === 2) {
-      if (is3bp) key = "turn_3bp_ip";
-      else if (ip) key = "turn_srp_ip";
+      if (is3bp) key = ip ? "turn_3bp_ip" : "turn_3bp_oop";
+      else key = ip ? "turn_srp_ip" : "turn_srp_oop";
     } else if (streetIndex === 3) {
-      if (is3bp) key = ip ? "river_3bp_ip" : null;
+      if (is3bp) key = ip ? "river_3bp_ip" : "river_3bp_oop";
       else key = ip ? "river_srp_ip" : "river_srp_oop";
     }
     if (!key) return null;
     const street = streetIndex === 1 ? "flop" : streetIndex === 2 ? "turn" : "river";
     return TRAINED_SUBGAMES[street].has(key) ? key : null;
+  }
+
+  function subgamePrefixMultiway(profile, streetIndex) {
+    if (streetIndex !== 1) return null;
+    const is3bp = profile.pot === "3bet" || profile.pot === "4bet";
+    const key = is3bp ? "flop_mw_3bp" : "flop_mw_srp";
+    return TRAINED_MW_SUBGAMES.has(key) ? key : null;
+  }
+
+  function evaluateMwCfrLookup(community, streetIndex, subgameKey) {
+    if (!subgameKey || !TRAINED_MW_SUBGAMES.has(subgameKey)) {
+      return { use: false, reason: "no_mw_subgame" };
+    }
+    const boardInfo = lookupLabel(community, streetIndex);
+    const match = nearestKeyWithScore(
+      community,
+      streetIndex === 1 ? FLOP_KEYS : streetIndex === 2 ? TURN_KEYS : RIVER_KEYS,
+      streetIndex === 1 ? FLOP_RANKS : streetIndex === 2 ? TURN_RANKS : RIVER_RANKS,
+    );
+    if (match.live.paired !== match.tmpl.paired) {
+      return { use: false, boardInfo, reason: "paired_mismatch" };
+    }
+    const minScore = MIN_BOARD_SCORE.flop;
+    if (match.score < minScore) {
+      return { use: false, boardInfo, score: match.score, reason: "low_board_score" };
+    }
+    return { use: true, boardInfo, score: match.score, reason: "ok" };
   }
 
   function boardKeyForSubgame(community, streetIndex, subgameKey, availableFiles) {
@@ -291,9 +320,12 @@ const CfrBoardMap = (() => {
     formatBoard,
     lookupLabel,
     subgamePrefix,
+    subgamePrefixMultiway,
     boardKeyForSubgame,
     evaluateCfrLookup,
+    evaluateMwCfrLookup,
     TRAINED_SUBGAMES,
+    TRAINED_MW_SUBGAMES,
     FLOP_KEYS,
     MIN_BOARD_SCORE,
   };

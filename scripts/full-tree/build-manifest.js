@@ -20,7 +20,7 @@ const manifest = {
     river: files.filter((f) => f.startsWith("river_")).length,
     turn: files.filter((f) => f.startsWith("turn_")).length,
     flop: files.filter((f) => f.startsWith("flop_")).length,
-    complete: files.length >= 60,
+    complete: files.length >= 106,
   },
   generatedAt: new Date().toISOString(),
 };

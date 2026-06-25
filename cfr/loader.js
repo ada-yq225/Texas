@@ -10,7 +10,7 @@ const CfrLoader = (() => {
     if (bundle) return bundle;
     if (loading) return loading;
     status = "loading";
-    loading = fetch(`${base}/bundle.json?v=1`)
+    loading = fetch(`${base}/bundle.json?v=2`)
       .then((r) => {
         if (!r.ok) throw new Error(`CFR bundle HTTP ${r.status}`);
         return r.json();
