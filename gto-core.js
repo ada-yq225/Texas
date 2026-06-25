@@ -93,11 +93,17 @@ const GtoCore = (() => {
   function seatRoles(ctx) {
     const n = ctx.players.length;
     const d = ctx.dealerIndex;
+    const map = new Map();
+    if (n === 2) {
+      ctx.players.forEach((p, idx) => {
+        map.set(p.id, idx === d ? "BTN" : "BB");
+      });
+      return map;
+    }
     const order = [];
     for (let i = 1; i <= n; i += 1) order.push((d + i) % n);
     const sb = order[0];
     const bb = order[1];
-    const map = new Map();
     ctx.players.forEach((p, idx) => {
       if (idx === d) map.set(p.id, "BTN");
       else if (idx === sb) map.set(p.id, "SB");

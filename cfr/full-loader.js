@@ -73,10 +73,26 @@ const CfrFullLoader = (() => {
   function pickAction(strategies, comboId, history, seed) {
     const infoKey = `${comboId}|${history}`;
     let entries = strategies[infoKey];
-    if (!entries) {
-      const prefix = `${comboId}|`;
-      const match = Object.keys(strategies).find((k) => k.startsWith(prefix) && (history === "" || k.includes(history.split("/")[0])));
-      if (match) entries = strategies[match];
+    if (!entries && history) {
+      const comboPrefix = `${comboId}|`;
+      let bestKey = null;
+      let bestLen = -1;
+      Object.keys(strategies).forEach((k) => {
+        if (!k.startsWith(comboPrefix)) return;
+        const hist = k.slice(comboPrefix.length);
+        if (history === hist || history.startsWith(`${hist}/`)) {
+          if (hist.length > bestLen) {
+            bestLen = hist.length;
+            bestKey = k;
+          }
+        }
+      });
+      if (bestKey) entries = strategies[bestKey];
+    }
+    if (!entries && !history) {
+      const root = `${comboId}|`;
+      const rootKey = Object.keys(strategies).find((k) => k === root || k.startsWith(`${comboId}|`) && !k.slice(root.length).includes("/"));
+      if (rootKey) entries = strategies[rootKey];
     }
     if (!entries || !entries.length) return null;
     const roll = GtoCore.seededUnit(seed);
@@ -88,16 +104,24 @@ const CfrFullLoader = (() => {
     return entries.at(-1).a;
   }
 
-  function lookupComboSync({ street, subgameKey, boardKey, comboId, history, seed }) {
+  function resolveStrategyFile(street, subgameKey, boardKey, community, streetIndex) {
     const lists = manifest?.files?.[street] || [];
+    if (!subgameKey) return null;
     const prefix = `${subgameKey}_`;
-    const exact = `${prefix}${boardKey}.json`;
-    let file = lists.includes(exact) ? exact : null;
-    if (!file && boardKey) {
-      file = lists.find((f) => f === exact || f.startsWith(prefix) && f.includes(`_${boardKey}.`)) || null;
-    }
-    if (!file) return null;
-    if (!cache.has(file)) return null;
+    const siblings = lists.filter((f) => f.startsWith(prefix));
+    if (!siblings.length) return null;
+    const resolvedKey = typeof CfrBoardMap !== "undefined" && community?.length >= 3
+      ? CfrBoardMap.boardKeyForSubgame(community, streetIndex, subgameKey, siblings)
+      : boardKey;
+    const exact = `${prefix}${resolvedKey}.json`;
+    if (lists.includes(exact)) return exact;
+    const fuzzy = siblings.find((f) => f.startsWith(`${prefix}${resolvedKey}`));
+    return fuzzy || null;
+  }
+
+  function lookupComboSync({ street, subgameKey, boardKey, comboId, history, seed, community, streetIndex }) {
+    const file = resolveStrategyFile(street, subgameKey, boardKey, community, streetIndex);
+    if (!file || !cache.has(file)) return null;
     const sg = cache.get(file);
     return pickAction(sg.strategies, comboId, history, seed);
   }
@@ -138,6 +162,7 @@ const CfrFullLoader = (() => {
     statusText,
     lookupComboSync,
     lookupPreflopSync,
+    getManifest: () => manifest,
     getCacheSize: () => cache.size,
   };
 })();

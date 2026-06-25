@@ -197,16 +197,43 @@ const CfrBoardMap = (() => {
     return { live, tmpl, approx: live !== tmpl };
   }
 
+  const TRAINED_SUBGAMES = {
+    flop: new Set(["flop_srp_ip", "flop_3bp_oop"]),
+    turn: new Set(["turn_srp_ip", "turn_3bp_ip"]),
+    river: new Set(["river_srp_ip", "river_srp_oop", "river_3bp_ip"]),
+  };
+
   function subgamePrefix(profile, streetIndex) {
     const ip = profile.isIp;
-    const pot = profile.pot;
-    if (streetIndex === 3) {
-      if (pot === "3bet" || pot === "4bet") return ip ? "river_3bp_ip" : "river_srp_oop";
-      return ip ? "river_srp_ip" : "river_srp_oop";
+    const is3bp = profile.pot === "3bet" || profile.pot === "4bet";
+    let key = null;
+    if (streetIndex === 1) {
+      if (is3bp) key = "flop_3bp_oop";
+      else if (ip) key = "flop_srp_ip";
+    } else if (streetIndex === 2) {
+      if (is3bp) key = "turn_3bp_ip";
+      else if (ip) key = "turn_srp_ip";
+    } else if (streetIndex === 3) {
+      if (is3bp) key = ip ? "river_3bp_ip" : null;
+      else key = ip ? "river_srp_ip" : "river_srp_oop";
     }
-    if (streetIndex === 2) return pot === "3bet" ? "turn_3bp_ip" : "turn_srp_ip";
-    if (streetIndex === 1) return pot === "3bet" ? "flop_3bp_oop" : "flop_srp_ip";
-    return null;
+    if (!key) return null;
+    const street = streetIndex === 1 ? "flop" : streetIndex === 2 ? "turn" : "river";
+    return TRAINED_SUBGAMES[street].has(key) ? key : null;
+  }
+
+  function boardKeyForSubgame(community, streetIndex, subgameKey, availableFiles) {
+    const prefix = `${subgameKey}_`;
+    const suffixes = (availableFiles || [])
+      .filter((f) => f.startsWith(prefix) && f.endsWith(".json"))
+      .map((f) => f.slice(prefix.length, -5));
+    if (!suffixes.length) {
+      return streetIndex === 1 ? flopKey(community) : streetIndex === 2 ? turnKey(community) : riverKey(community);
+    }
+    const rankMap = streetIndex === 1 ? FLOP_RANKS : streetIndex === 2 ? TURN_RANKS : RIVER_RANKS;
+    const keys = streetIndex === 1 ? FLOP_KEYS : streetIndex === 2 ? TURN_KEYS : RIVER_KEYS;
+    const allowed = keys.filter((k) => suffixes.includes(k));
+    return nearestKey(community, allowed.length ? allowed : keys, rankMap);
   }
 
   return {
@@ -218,6 +245,8 @@ const CfrBoardMap = (() => {
     formatBoard,
     lookupLabel,
     subgamePrefix,
+    boardKeyForSubgame,
+    TRAINED_SUBGAMES,
     FLOP_KEYS,
   };
 })();

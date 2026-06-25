@@ -72,15 +72,16 @@ const CfrBridge = (() => {
     if (comboId == null) return null;
 
     const street = ctx.streetIndex === 1 ? "flop" : ctx.streetIndex === 2 ? "turn" : "river";
-    const boardKey = street === "flop"
-      ? CfrBoardMap.flopKey(ctx.community)
-      : street === "turn"
-        ? CfrBoardMap.turnKey(ctx.community)
-        : CfrBoardMap.riverKey(ctx.community);
     const subgameKey = CfrBoardMap.subgamePrefix(profile, ctx.streetIndex);
     if (!subgameKey) return null;
 
+    const lists = typeof CfrFullLoader.getManifest === "function" ? CfrFullLoader.getManifest()?.files?.[street] : null;
+    const boardKey = lists
+      ? CfrBoardMap.boardKeyForSubgame(ctx.community, ctx.streetIndex, subgameKey, lists)
+      : (street === "flop" ? CfrBoardMap.flopKey(ctx.community) : street === "turn" ? CfrBoardMap.turnKey(ctx.community) : CfrBoardMap.riverKey(ctx.community));
+
     const boardInfo = CfrBoardMap.lookupLabel(ctx.community, ctx.streetIndex);
+    boardInfo.tmpl = boardKey;
     const action = CfrFullLoader.lookupComboSync({
       street,
       subgameKey,
@@ -88,6 +89,8 @@ const CfrBridge = (() => {
       comboId,
       history: streetHistory(ctx),
       seed: `full:${ctx.handNumber}:${comboId}:${streetHistory(ctx)}`,
+      community: ctx.community,
+      streetIndex: ctx.streetIndex,
     });
     if (!action) return null;
     const boardTag = boardInfo.approx ? `牌面${boardInfo.live}≈${boardInfo.tmpl}` : `牌面${boardInfo.live}`;
@@ -160,7 +163,9 @@ const CfrBridge = (() => {
     const history = streetHistory(ctx).replace(/bet25/g, "bet33").replace(/bet50/g, "bet66");
     const action = CfrLoader.lookup({ subgame, bucket, history, seed: `cfr:${ctx.handNumber}:${bucket}:${history}` });
     if (!action) return null;
-    return cfrToDecision(action, player, ctx, `CFR+ ${subgame}`);
+    const boardInfo = CfrBoardMap.lookupLabel(ctx.community, ctx.streetIndex);
+    const boardTag = boardInfo.approx ? `牌面${boardInfo.live}≈${boardInfo.tmpl}` : `牌面${boardInfo.live}`;
+    return cfrToDecision(action, player, ctx, `CFR8 ${subgame} · ${boardTag}`);
   }
 
   function tryPostflop(player, ctx, profile) {

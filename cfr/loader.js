@@ -71,16 +71,21 @@ const CfrLoader = (() => {
   }
 
   function subgameKey(profile, streetIndex) {
+    if (typeof CfrBoardMap !== "undefined") return CfrBoardMap.subgamePrefix(profile, streetIndex);
     const pot = profile.pot;
     const ip = profile.isIp;
+    const is3bp = pot === "3bet" || pot === "4bet";
     if (streetIndex === 3) {
-      if (pot === "3bet" || pot === "4bet") return ip ? "river_3bp_ip" : "river_srp_oop";
+      if (is3bp) return ip ? "river_3bp_ip" : null;
       return ip ? "river_srp_ip" : "river_srp_oop";
     }
-    if (streetIndex === 2) return ip ? "turn_srp_ip" : "turn_srp_ip";
+    if (streetIndex === 2) {
+      if (is3bp) return "turn_3bp_ip";
+      return ip ? "turn_srp_ip" : null;
+    }
     if (streetIndex === 1) {
-      if (pot === "3bet" || pot === "4bet") return ip ? "flop_3bp_oop" : "flop_3bp_oop";
-      return ip ? "flop_srp_ip" : "flop_srp_ip";
+      if (is3bp) return "flop_3bp_oop";
+      return ip ? "flop_srp_ip" : null;
     }
     return null;
   }
@@ -91,9 +96,20 @@ const CfrLoader = (() => {
     if (!sg) return null;
     const infoKey = `${bucket}|${history}`;
     const action = pickAction(sg.strategies, infoKey, sg.actions, seed);
-    if (!action) {
-      const partial = Object.keys(sg.strategies).find((k) => k.startsWith(`${bucket}|`) && k.includes(history.split("/")[0] || ""));
-      if (partial) return pickAction(sg.strategies, partial, sg.actions, seed);
+    if (!action && history) {
+      let bestKey = null;
+      let bestLen = -1;
+      Object.keys(sg.strategies).forEach((k) => {
+        if (!k.startsWith(`${bucket}|`)) return;
+        const hist = k.slice(`${bucket}|`.length);
+        if (history === hist || history.startsWith(`${hist}/`)) {
+          if (hist.length > bestLen) {
+            bestLen = hist.length;
+            bestKey = k;
+          }
+        }
+      });
+      if (bestKey) return pickAction(sg.strategies, bestKey, sg.actions, seed);
     }
     return action;
   }
