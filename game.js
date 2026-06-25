@@ -457,22 +457,23 @@ function gtoFrameworkNote(decision, player) {
 }
 
 function botStyleCommentary(player, decision, equity) {
+  if (decision.reason) return decision.reason;
   const style = player.style || "标准";
   if (decision.type === "fold") {
-    return `${style}玩家：权益 ${Math.round(equity * 100)}% 不足，选择弃牌止损`;
+    return `${style}：权益 ${Math.round(equity * 100)}% 不足，弃牌止损`;
   }
   if (decision.type === "call") {
-    return `${style}玩家：底池赔率可支付，用${player.calling > 0.55 ? "跟注" : "防守"}范围继续`;
+    return `${style}：底池赔率可支付，${player.calling > 0.55 ? "宽跟" : "防守"}继续`;
   }
   if (decision.type === "check") {
-    return `${style}玩家：控池/陷阱线，过牌等待下一街信息`;
+    return `${style}：控池/陷阱，过牌等下一街`;
   }
   if (decision.type === "raise") {
-    if (equity > 0.62) return `${style}玩家：价值线，强牌主动建池`;
-    if ((player.bluff || 0) > 0.25) return `${style}玩家：施压/诈唬，测试对手弃牌阈值`;
-    return `${style}玩家：主动下注夺取主动权`;
+    if (equity > 0.62) return `${style}：价值线，强牌建池`;
+    if ((player.bluff || 0) > 0.25) return `${style}：施压诈唬，测试弃牌阈值`;
+    return `${style}：主动下注夺主动权`;
   }
-  return `${style}玩家标准行动`;
+  return `${style}标准行动`;
 }
 
 function buildProCommentary(player, decision, options = {}) {
@@ -501,7 +502,10 @@ function buildProCommentary(player, decision, options = {}) {
       lines.push({ key: "思路", value: "先 GTO 基线，再按对手 VPIP/弃牌率/跟注倾向偏离频率与尺度" });
     }
   } else {
-    lines.push({ key: "解读", value: botStyleCommentary(player, decision, equity) });
+    lines.push({ key: "风格", value: botStyleCommentary(player, decision, equity) });
+    if (decision.read && decision.read !== player.style) {
+      lines.push({ key: "读牌", value: decision.read });
+    }
     if (typeof ExploitEngine !== "undefined" && isExploitMode()) {
       const leaks = ExploitEngine.leakProfile(player);
       lines.push({
@@ -2183,22 +2187,17 @@ function sprFor(player) {
   return effectiveStack / Math.max(1, state.pot);
 }
 
-function chooseBotTarget(player, equity, mode = "value") {
-  const call = callAmount(player);
-  const potBasis = Math.max(state.pot + call, state.bigBlind * 3);
-  const heat = boardTexture();
-  const personality = player.aggression || 0.5;
-  let fraction = 0.48 + personality * 0.22 + rand(-0.12, 0.16);
-  if (mode === "bluff") fraction += heat * 0.14;
-  if (mode === "premium") fraction += 0.24;
-  if (equity > 0.78) fraction += 0.18;
-
-  if (state.currentBet === 0) {
-    return clamp(roundToBlind(potBasis * fraction), state.bigBlind, maxTargetFor(player));
-  }
-
-  const raisePart = roundToBlind(Math.max(state.minRaise, potBasis * fraction));
-  return clamp(state.currentBet + raisePart, minTargetFor(player), maxTargetFor(player));
+function botContext() {
+  return {
+    ...gtoContext(),
+    hero: hero(),
+    heroProfile,
+    positionQuality,
+    stackPressure,
+    sprFor,
+    boardTexture,
+    rand,
+  };
 }
 
 function preflopRaiseLabel() {
@@ -2216,75 +2215,12 @@ function raiseButtonLabel() {
 }
 
 function decideForBot(player) {
-  const call = callAmount(player);
-  const equity = estimateEquity(player);
-  const profile = heroProfile();
-  const noise = rand(-0.06, 0.06) + (player.mood || 0);
-  const potOdds = call / Math.max(1, state.pot + call);
-  const facingHero = state.lastAggressor === hero().id;
-  const tightness = player.tightness || 0.5;
-  const aggression = player.aggression || 0.5;
-  const bluff = player.bluff || 0.18;
-  const trap = player.trap || 0.15;
-  const calling = player.calling || 0.5;
-  const position = positionQuality(player);
-  const multiwayPenalty = Math.max(0, activePlayers().length - 2) * 0.035;
-  const spr = sprFor(player);
-  const stackAdjust = stackPressure(player);
-  const positionAdjust = (position - 0.5) * (player.positionSense || 0.5) * 0.16;
-  const boardHeat = boardTexture();
-
-  player.read = equity > 0.72 ? "强牌范围" : equity < 0.32 ? "边缘范围" : player.style;
-
-  if (call > 0) {
-    const heroPressure = facingHero ? profile.aggression * 0.08 - profile.foldToBet * 0.06 : 0;
-    const continueScore =
-      equity -
-      potOdds * (0.72 - calling * 0.22) +
-      aggression * 0.06 -
-      tightness * 0.08 +
-      heroPressure +
-      positionAdjust -
-      multiwayPenalty +
-      stackAdjust +
-      noise;
-    const premium = equity > 0.72 + multiwayPenalty + rand(-0.04, 0.04);
-    const canRaise = player.stack > call + state.minRaise;
-    const deceptiveCall = premium && Math.random() < trap * (spr > 3 ? 1.2 : 0.55) && profile.aggression > 0.28;
-
-    if (canRaise && premium && !deceptiveCall) {
-      const label = state.currentBet > 0 ? preflopRaiseLabel() : "下注";
-      const multiplier = state.streetIndex === 0 ? rand(2.35, 3.45) + (position > 0.7 ? 0.15 : 0) : rand(1.9, 2.8);
-      const target = state.streetIndex === 0 ? roundToBlind(state.currentBet * multiplier) : chooseBotTarget(player, equity, "premium");
-      player.read = label.includes("Bet") ? "翻前反击" : "价值加注";
-      return { type: "raise", target, label };
-    }
-
-    const foldEquityTarget = profile.foldToBet + (facingHero ? 0.08 : 0) + (position > 0.65 ? 0.08 : 0);
-    const bluffRaise = canRaise && equity > 0.32 && Math.random() < bluff * (foldEquityTarget + 0.1) * (0.8 + boardHeat) && activePlayers().length <= 3;
-    if (bluffRaise) {
-      player.read = "施压测试";
-      return { type: "raise", target: chooseBotTarget(player, equity, "bluff"), label: state.currentBet > 0 ? preflopRaiseLabel() : "下注" };
-    }
-
-    if (continueScore < 0.05) {
-      return { type: "fold" };
-    }
-    return { type: "call" };
+  if (typeof BotEngine !== "undefined") {
+    const decision = BotEngine.decide(player, botContext());
+    player.read = decision.read || player.style;
+    return decision;
   }
-
-  const valueLine = 0.56 + tightness * 0.08 + multiwayPenalty - positionAdjust - stackAdjust * 0.35;
-  const valueBet = equity > valueLine + rand(-0.05, 0.04);
-  const bluffBet = Math.random() < bluff * (profile.foldToBet + 0.12 + (position > 0.65 ? 0.08 : 0)) * (0.7 + boardHeat) && activePlayers().length <= 3;
-  if (player.stack > state.bigBlind && (valueBet || bluffBet)) {
-    player.read = valueBet ? "主动要价值" : "试探下注";
-    return {
-      type: "raise",
-      target: chooseBotTarget(player, equity, valueBet ? "value" : "bluff"),
-      label: state.currentBet > 0 ? preflopRaiseLabel() : "下注",
-    };
-  }
-  return { type: "check" };
+  return { type: "check", read: player.style, reason: "BotEngine 未加载" };
 }
 
 function suggestedBetTarget() {
