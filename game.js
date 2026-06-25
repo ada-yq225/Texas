@@ -94,6 +94,7 @@ const state = {
     wins: 0,
     rebuys: 0,
     lastReason: "",
+    handProfits: [],
   },
   exploitStats: {
     handsCompleted: 0,
@@ -101,7 +102,9 @@ const state = {
     wins: 0,
     rebuys: 0,
     lastReason: "",
+    handProfits: [],
   },
+  exploitHandContext: null,
 };
 
 const els = {
@@ -276,6 +279,7 @@ function resetGtoStats() {
     wins: 0,
     rebuys: 0,
     lastReason: "",
+    handProfits: [],
   };
 }
 
@@ -286,6 +290,7 @@ function resetExploitStats() {
     wins: 0,
     rebuys: 0,
     lastReason: "",
+    handProfits: [],
   };
 }
 
@@ -392,6 +397,21 @@ function decideForExploit(player) {
   const decision = ExploitEngine.decide(player, gtoContext());
   state.exploitStats.lastReason = decision.reason || "剥削";
   player.read = decision.reason || "最优剥削";
+  if (player.aiType === "exploit") {
+    const label = `${decision.label || ""} ${decision.reason || ""}`;
+    const ctx = state.exploitHandContext || { wasBluff: false, wasThinValue: false, decisions: [] };
+    if (/诈唬|bluff/i.test(label)) ctx.wasBluff = true;
+    if (/薄价值/i.test(label)) ctx.wasThinValue = true;
+    const evMeta = typeof ExploitEngine.getLastDecisionMeta === "function" ? ExploitEngine.getLastDecisionMeta() : null;
+    ctx.decisions.push({
+      street: streetKeyFromIndex(state.streetIndex),
+      action: formatDecisionAction(decision),
+      reason: decision.reason || "",
+      evMeta: evMeta?.picked ? { target: evMeta.picked.target, ev: evMeta.picked.ev, mode: evMeta.picked.mode } : null,
+    });
+    state.exploitHandContext = ctx;
+    if (state.currentHandRecord) state.currentHandRecord.exploitDecisions = ctx.decisions;
+  }
   return decision;
 }
 
@@ -673,6 +693,8 @@ function updateAiStats(aiType) {
   stats.handsCompleted += 1;
   stats.cumulativeProfit += profit;
   if (player.winner) stats.wins += 1;
+  if (!stats.handProfits) stats.handProfits = [];
+  stats.handProfits.push(profit / state.bigBlind);
 }
 
 function updateSimStats() {
@@ -686,6 +708,23 @@ function formatBb100(profit, hands) {
   return `${bb100 >= 0 ? "+" : ""}${bb100.toFixed(1)}`;
 }
 
+function bb100ConfidenceInterval(handProfits) {
+  const n = handProfits?.length || 0;
+  if (n < 5) return null;
+  const mean = handProfits.reduce((sum, p) => sum + p, 0) / n;
+  const variance = handProfits.reduce((sum, p) => sum + (p - mean) ** 2, 0) / (n - 1);
+  const margin = 1.96 * Math.sqrt(variance / n);
+  return { lo: (mean - margin) * 100, hi: (mean + margin) * 100 };
+}
+
+function formatBb100WithCi(profit, hands, handProfits) {
+  const base = formatBb100(profit, hands);
+  const ci = bb100ConfidenceInterval(handProfits);
+  if (!ci) return base;
+  const fmt = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}`;
+  return `${base} [95%: ${fmt(ci.lo)}, ${fmt(ci.hi)}]`;
+}
+
 function paintMetric(el, value) {
   if (!el) return;
   el.textContent = value > 0 ? `+${value}` : `${value}`;
@@ -696,10 +735,10 @@ function paintMetric(el, value) {
   }
 }
 
-function paintBbMetric(el, profit, hands) {
+function paintBbMetric(el, profit, hands, handProfits) {
   if (!el) return;
   const bb100 = hands > 0 ? ((profit / state.bigBlind) / hands) * 100 : 0;
-  el.textContent = formatBb100(profit, hands);
+  el.textContent = formatBb100WithCi(profit, hands, handProfits);
   const metric = el.closest(".metric");
   if (metric) {
     metric.classList.toggle("positive", bb100 > 0);
@@ -714,7 +753,7 @@ function renderAiColumn(stats, elsMap) {
   const avgProfit = hands > 0 ? Math.round(profit / hands) : 0;
   elsMap.hands.textContent = `${hands}`;
   paintMetric(elsMap.profit, profit);
-  paintBbMetric(elsMap.bb100, profit, hands);
+  paintBbMetric(elsMap.bb100, profit, hands, stats.handProfits);
   elsMap.winRate.textContent = `${winRate}%`;
   elsMap.avgProfit.textContent = avgProfit > 0 ? `+${avgProfit}` : `${avgProfit}`;
   elsMap.rebuys.textContent = `${stats.rebuys}`;
@@ -957,6 +996,7 @@ function createEmptyHandRecord() {
       turn: { board: [], actions: [] },
       river: { board: [], actions: [] },
     },
+    exploitDecisions: [],
     result: null,
   };
 }
@@ -1098,6 +1138,16 @@ function renderHistoryDetail(record) {
     ? result.runoutBoards.map((board, index) => `<div class="hist-runout"><span>第 ${index + 1} 次</span>${historyBoardMarkup(board)}</div>`).join("")
     : "";
 
+  const exploitHtml = record.exploitDecisions?.length
+    ? `<div class="hist-exploit">
+        <div class="hist-players-title">剥削决策</div>
+        <ul class="hist-actions">${record.exploitDecisions.map((row) => {
+          const ev = row.evMeta ? ` · EV+${Math.round(row.evMeta.ev)} @${row.evMeta.target}` : "";
+          return `<li><strong>${row.street}</strong> ${row.action}<span>${row.reason}${ev}</span></li>`;
+        }).join("")}</ul>
+      </div>`
+    : "";
+
   els.historyDetail.innerHTML = `
     <div class="hist-detail-head">
       <strong>第 ${record.id} 手详情</strong>
@@ -1116,6 +1166,7 @@ function renderHistoryDetail(record) {
       ${playersHtml}
     </div>
     <div class="hist-streets">${streetsHtml}</div>
+    ${exploitHtml}
   `;
   els.historyDetail.hidden = false;
 }
@@ -1334,6 +1385,9 @@ function beginHand() {
     if (exploitPlayer) state.simHandStarts.exploit = exploitPlayer.stack;
   }
   if (typeof ExploitEngine !== "undefined") ExploitEngine.resetHandFlags();
+  state.exploitHandContext = isExploitMode()
+    ? { wasBluff: false, wasThinValue: false, decisions: [] }
+    : null;
 
   const { sb, bb } = setPositions();
   for (let round = 0; round < 2; round += 1) {
@@ -1658,13 +1712,28 @@ function splitPotAmount(amount, boardIndex, boardCount) {
   return base + (boardIndex < remainder ? 1 : 0);
 }
 
+function recordExploitHandResult() {
+  if (typeof ExploitEngine === "undefined" || !isExploitMode()) return;
+  const hero = playerByAiType("exploit");
+  if (!hero) return;
+  const ctx = state.exploitHandContext || {};
+  const villains = state.players.filter((p) => p.id !== hero.id);
+  ExploitEngine.recordHandResult(villains, {
+    heroWon: !!hero.winner,
+    wasBluff: !!ctx.wasBluff,
+    wasThinValue: !!ctx.wasThinValue,
+  });
+}
+
 function endHand(message) {
+  recordExploitHandResult();
   state.active = false;
   state.awaitHero = false;
   state.streetIndex = 3;
   state.handNumber += 1;
   state.dealerIndex = nextIndex(state.dealerIndex);
   updateSimStats();
+  renderSimPanel();
   if (state.simAutoRunning && isAutoSimMode() && isStepPace()) {
     state.simStepKind = "handend";
     state.simCommentary = buildHandEndCommentary(message);
