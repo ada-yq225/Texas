@@ -89,13 +89,15 @@ const CfrFullLoader = (() => {
   }
 
   function lookupComboSync({ street, subgameKey, boardKey, comboId, history, seed }) {
-    const filename = `${subgameKey}_${boardKey}.json`;
     const lists = manifest?.files?.[street] || [];
-    let file = filename;
-    if (!lists.includes(file)) {
-      file = lists.find((f) => f.startsWith(subgameKey)) || null;
+    const prefix = `${subgameKey}_`;
+    const exact = `${prefix}${boardKey}.json`;
+    let file = lists.includes(exact) ? exact : null;
+    if (!file && boardKey) {
+      file = lists.find((f) => f === exact || f.startsWith(prefix) && f.includes(`_${boardKey}.`)) || null;
     }
-    if (!file || !cache.has(file)) return null;
+    if (!file) return null;
+    if (!cache.has(file)) return null;
     const sg = cache.get(file);
     return pickAction(sg.strategies, comboId, history, seed);
   }

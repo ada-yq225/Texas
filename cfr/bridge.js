@@ -80,6 +80,7 @@ const CfrBridge = (() => {
     const subgameKey = CfrBoardMap.subgamePrefix(profile, ctx.streetIndex);
     if (!subgameKey) return null;
 
+    const boardInfo = CfrBoardMap.lookupLabel(ctx.community, ctx.streetIndex);
     const action = CfrFullLoader.lookupComboSync({
       street,
       subgameKey,
@@ -89,7 +90,8 @@ const CfrBridge = (() => {
       seed: `full:${ctx.handNumber}:${comboId}:${streetHistory(ctx)}`,
     });
     if (!action) return null;
-    return cfrToDecision(action, player, ctx, `CFR1326 ${subgameKey}/${boardKey}`);
+    const boardTag = boardInfo.approx ? `牌面${boardInfo.live}≈${boardInfo.tmpl}` : `牌面${boardInfo.live}`;
+    return cfrToDecision(action, player, ctx, `CFR1326 ${subgameKey} · ${boardTag}`);
   }
 
   function preflopRaiseTarget(player, ctx, action) {
