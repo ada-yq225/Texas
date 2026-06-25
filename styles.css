@@ -618,11 +618,43 @@ body[data-hero-mode="exploit"] .hero-seat .seat {
     inset 0 0 0 1px rgba(237, 189, 91, 0.16);
 }
 
-body[data-hero-mode="dual"] .opponents .seat-1 .seat {
+body[data-hero-mode="dual"] .opponents .seat-1 .seat,
+body[data-hero-mode="hu"] .opponents .seat-1 .seat {
   border-color: rgba(237, 189, 91, 0.38);
   box-shadow:
     0 18px 36px rgba(0, 0, 0, 0.26),
     inset 0 0 0 1px rgba(237, 189, 91, 0.14);
+}
+
+body[data-hero-mode="hu"] .poker-table {
+  min-height: clamp(320px, 42vh, 480px);
+}
+
+body[data-hero-mode="hu"] .opponents .seat-1 {
+  top: 6%;
+}
+
+body[data-hero-mode="hu"] .hero-seat {
+  bottom: 4%;
+}
+
+body[data-hero-mode="hu"] .sim-stats-panel {
+  border-color: rgba(120, 180, 255, 0.35);
+}
+
+body[data-hero-mode="hu"][data-sim-running="1"] .sim-stats-panel {
+  border-color: rgba(120, 180, 255, 0.55);
+  animation: huPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes huPulse {
+  0%,
+  100% {
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+  }
+  50% {
+    box-shadow: 0 16px 42px rgba(72, 140, 220, 0.18);
+  }
 }
 
 body[data-sim-running="1"] .sim-stats-panel {

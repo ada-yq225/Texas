@@ -185,15 +185,23 @@ function isManualMode() {
 }
 
 function isGtoMode() {
-  return state.heroMode === "gto" || state.heroMode === "dual";
+  return state.heroMode === "gto" || state.heroMode === "dual" || state.heroMode === "hu";
 }
 
 function isExploitMode() {
-  return state.heroMode === "exploit" || state.heroMode === "dual";
+  return state.heroMode === "exploit" || state.heroMode === "dual" || state.heroMode === "hu";
 }
 
 function isDualMode() {
   return state.heroMode === "dual";
+}
+
+function isHuMode() {
+  return state.heroMode === "hu";
+}
+
+function isHuBattleMode() {
+  return isDualMode() || isHuMode();
 }
 
 function isAutoSimMode() {
@@ -236,18 +244,38 @@ function syncSimPace() {
   state.gtoSpeed = value;
 }
 
+function applyHuModeSettings() {
+  if (!isHuMode()) {
+    if (els.playerCountSelect) els.playerCountSelect.disabled = state.active || state.simAutoRunning;
+    return;
+  }
+  state.playerCount = 2;
+  state.gameMode = "study";
+  if (els.modeSelect) els.modeSelect.value = "study";
+  if (els.gtoSpeedSelect) els.gtoSpeedSelect.value = "auto";
+  if (els.playerCountSelect) els.playerCountSelect.disabled = true;
+  syncSimPace();
+}
+
+function startHuDemoIfReady() {
+  if (!isHuMode() || state.active || state.simAutoRunning) return;
+  state.message = "单挑演示：GTO vs 剥削，自动开局中…";
+  render(state.message);
+  startSimAuto();
+}
+
 function simActionDelay() {
   if (state.gtoSpeed === "turbo") return 0;
-  if (state.gtoSpeed === "fast") return 180;
-  if (state.gtoSpeed === "auto") return 320;
-  return 520;
+  if (state.gtoSpeed === "fast") return isHuMode() ? 220 : 180;
+  if (state.gtoSpeed === "auto") return isHuMode() ? 480 : 320;
+  return isHuMode() ? 680 : 520;
 }
 
 function simHandDelay() {
   if (state.gtoSpeed === "turbo") return 60;
-  if (state.gtoSpeed === "fast") return 420;
-  if (state.gtoSpeed === "auto") return 700;
-  return 1100;
+  if (state.gtoSpeed === "fast") return isHuMode() ? 520 : 420;
+  if (state.gtoSpeed === "auto") return isHuMode() ? 900 : 700;
+  return isHuMode() ? 1300 : 1100;
 }
 
 function simBetweenHandDelay() {
@@ -305,12 +333,19 @@ function startSimAuto() {
   syncSimPace();
   state.simAutoRunning = true;
   clearSimStepState();
-  const label = isDualMode() ? "GTO vs 剥削对比" : isGtoHeroMode() ? "职业 GTO" : "最优剥削";
+  const label = isHuMode() ? "单挑 GTO vs 剥削" : isDualMode() ? "GTO vs 剥削对比" : isGtoHeroMode() ? "职业 GTO" : "最优剥削";
   if (isStepPace()) {
     state.message = `${label}步进演示：点击「下一步」推进每一手行动，并查看职业解说。每手结束后会自动发下一手。`;
-    state.simCommentary = [{ key: "引导", value: "演示已开始。第一次点击将发新手牌；之后每次点击执行一个行动（含对手）。手牌之间会自动衔接。" }];
+    state.simCommentary = [{ key: "引导", value: isHuMode()
+      ? "单挑演示：GTO 与剥削 AI 一对一，全程 CFR1326 单挑策略 + 剥削读牌。点击「下一步」推进。"
+      : "演示已开始。第一次点击将发新手牌；之后每次点击执行一个行动（含对手）。手牌之间会自动衔接。" }];
   } else {
-    state.message = `${label}持续模拟中… 自动跑完全桌并累计 BB/100，点击「停止模拟」可结束。`;
+    state.message = isHuMode()
+      ? `${label}自动演示中… 明牌 + 实时解说，点击「停止模拟」可结束。`
+      : `${label}持续模拟中… 自动跑完全桌并累计 BB/100，点击「停止模拟」可结束。`;
+    state.simCommentary = isHuMode()
+      ? [{ key: "单挑", value: "GTO Solver vs Exploit Solver · 单挑桌 · CFR1326 全量策略 · 自动演示" }]
+      : state.simCommentary;
   }
   renderSimPanel();
   renderSimCommentary();
@@ -574,7 +609,12 @@ function buildHandEndCommentary(message) {
   if (isExploitMode()) {
     lines.push({ key: "剥削累计", value: `${exploitLine >= 0 ? "+" : ""}${exploitLine}（${state.exploitStats.handsCompleted} 手）` });
   }
-  lines.push({ key: "提示", value: "模拟会持续进行，手牌之间自动衔接；也可点「下一步」立即发牌" });
+  lines.push({
+    key: "提示",
+    value: isHuMode()
+      ? "单挑自动演示持续进行；切换为步进可逐手分析 CFR 与剥削偏离。"
+      : "模拟会持续进行，手牌之间自动衔接；也可点「下一步」立即发牌",
+  });
   return lines;
 }
 
@@ -770,7 +810,7 @@ function renderSimPanel() {
   if (!show) return;
 
   const running = state.simAutoRunning;
-  const modeLabel = isDualMode() ? "GTO vs 剥削" : isGtoHeroMode() ? "GTO 模拟" : "剥削模拟";
+  const modeLabel = isHuMode() ? "单挑演示" : isDualMode() ? "GTO vs 剥削" : isGtoHeroMode() ? "GTO 模拟" : "剥削模拟";
   const paceLabel = isStepPace() ? "步进演示" : "持续模拟";
   els.simToggleBtn.textContent = running ? `停止${modeLabel}` : `开始${paceLabel}`;
   els.simToggleBtn.classList.toggle("danger", running);
@@ -786,17 +826,19 @@ function renderSimPanel() {
   else if (typeof CfrLoader !== "undefined") parts.push(CfrLoader.statusText());
   const cfrTag = parts.join(" · ");
   const pace = isStepPace() ? "步进演示" : "持续模拟";
+  const huTag = isHuMode() ? "单挑 · " : "";
   const totalHands = state.gtoStats.handsCompleted + state.exploitStats.handsCompleted;
   els.simStatsStatus.textContent = running
-    ? `${pace}中 · 已跑 ${Math.max(state.gtoStats.handsCompleted, state.exploitStats.handsCompleted)} 手 · ${cfrTag}`
+    ? `${huTag}${pace}中 · 已跑 ${Math.max(state.gtoStats.handsCompleted, state.exploitStats.handsCompleted)} 手 · ${cfrTag}`
     : totalHands > 0
       ? `已结束 · 共 ${Math.max(state.gtoStats.handsCompleted, state.exploitStats.handsCompleted)} 手 · ${cfrTag}`
       : cfrTag || "等待开始";
 
-  els.simStatsPanel.classList.toggle("dual-mode", isDualMode());
+  els.simStatsPanel.classList.toggle("dual-mode", isHuBattleMode());
   els.simStatsPanel.classList.toggle("gto-only", isGtoHeroMode());
   els.simStatsPanel.classList.toggle("exploit-only", state.heroMode === "exploit");
-  if (els.simCompare) els.simCompare.hidden = !isDualMode();
+  els.simStatsPanel.classList.toggle("hu-mode", isHuMode());
+  if (els.simCompare) els.simCompare.hidden = !isHuBattleMode();
   const exploitCol = els.simStatsPanel.querySelector(".exploit-col");
   const gtoCol = els.simStatsPanel.querySelector(".gto-col");
   if (exploitCol) exploitCol.hidden = !isExploitMode();
@@ -825,12 +867,23 @@ function renderSimPanel() {
   const gtoBb = state.gtoStats.handsCompleted > 0 ? parseFloat(formatBb100(state.gtoStats.cumulativeProfit, state.gtoStats.handsCompleted)) : 0;
   const exploitBb = state.exploitStats.handsCompleted > 0 ? parseFloat(formatBb100(state.exploitStats.cumulativeProfit, state.exploitStats.handsCompleted)) : 0;
 
-  if (isDualMode() && els.simCompare) {
+  if (isHuBattleMode() && els.simCompare) {
     const delta = exploitBb - gtoBb;
-    els.simCompare.textContent = `对比：剥削 ${formatBb100(state.exploitStats.cumulativeProfit, state.exploitStats.handsCompleted)} BB/100 vs GTO ${formatBb100(state.gtoStats.cumulativeProfit, state.gtoStats.handsCompleted)} BB/100（差 ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}）`;
+    const huTag = isHuMode() ? "单挑 · CFR1326 · " : "";
+    els.simCompare.textContent = `${huTag}剥削 ${formatBb100(state.exploitStats.cumulativeProfit, state.exploitStats.handsCompleted)} BB/100 vs GTO ${formatBb100(state.gtoStats.cumulativeProfit, state.gtoStats.handsCompleted)} BB/100（差 ${delta >= 0 ? "+" : ""}${delta.toFixed(1)}）`;
   }
 
-  if (isDualMode()) {
+  if (isHuMode()) {
+    if (state.gtoStats.handsCompleted < 8) {
+      els.simInsight.textContent = "单挑自动演示：GTO 走 CFR1326 均衡，剥削 AI 读牌偏离。明牌模式可观察每步决策与权益。";
+    } else if (exploitBb > gtoBb + 2) {
+      els.simInsight.textContent = `单挑剥削领先 +${(exploitBb - gtoBb).toFixed(1)} BB/100：剥削在单挑中捕捉到 GTO 可利用频率。${state.exploitStats.lastReason}`;
+    } else if (gtoBb > exploitBb + 2) {
+      els.simInsight.textContent = `单挑 GTO 领先 +${(gtoBb - exploitBb).toFixed(1)} BB/100：均衡策略在单挑中更抗剥削。${state.gtoStats.lastReason}`;
+    } else {
+      els.simInsight.textContent = `单挑接近均衡（GTO ${gtoBb.toFixed(1)} vs 剥削 ${exploitBb.toFixed(1)} BB/100）。${state.gtoStats.lastReason}`;
+    }
+  } else if (isDualMode()) {
     if (state.gtoStats.handsCompleted < 8) {
       els.simInsight.textContent = "双机器人同桌对抗风格桌，样本积累后可对比 GTO 均衡与最优剥削的长期 BB/100。";
     } else if (exploitBb > gtoBb + 2) {
@@ -873,6 +926,12 @@ function renderGtoPanel() {
 
 function seatBlueprints() {
   const botCount = Math.max(0, state.playerCount - 1);
+  if (isHuMode()) {
+    return [
+      { id: "gto", name: GTO_HERO_NAME, isHero: true, aiType: "gto", style: "GTO" },
+      { id: "exploit", name: EXPLOIT_BOT_NAME, isHero: false, aiType: "exploit", style: "剥削" },
+    ];
+  }
   if (isDualMode()) {
     return [
       { id: "gto", name: GTO_HERO_NAME, isHero: true, aiType: "gto", style: "GTO" },
@@ -1282,8 +1341,15 @@ function setPositions() {
     player.position = "";
   });
   const dealer = state.dealerIndex;
-  const sb = nextIndex(dealer);
-  const bb = nextIndex(sb);
+  let sb;
+  let bb;
+  if (state.players.length === 2) {
+    sb = dealer;
+    bb = nextIndex(dealer);
+  } else {
+    sb = nextIndex(dealer);
+    bb = nextIndex(sb);
+  }
   state.players[dealer].position = "D";
   state.players[sb].position = "SB";
   state.players[bb].position = "BB";
@@ -1296,10 +1362,11 @@ function newSession() {
   state.initialStack = Number(els.stackSelect.value);
   state.smallBlind = blindParts[0];
   state.bigBlind = blindParts[1];
-  state.playerCount = Number(els.playerCountSelect.value);
-  state.gameMode = els.modeSelect.value;
   state.heroMode = els.heroModeSelect.value;
-  syncSimPace();
+  applyHuModeSettings();
+  state.playerCount = isHuMode() ? 2 : Number(els.playerCountSelect.value);
+  state.gameMode = els.modeSelect.value;
+  if (!isHuMode()) syncSimPace();
   state.runTwice = els.runTwiceSelect.value === "twice";
   state.minRaise = state.bigBlind;
   state.handNumber = 1;
@@ -1332,13 +1399,15 @@ function newSession() {
   resetSimStats();
   if (hero()) hero().name = heroDisplayName();
   let modeHint = "新牌局已建立。";
-  if (isDualMode()) modeHint = "GTO vs 剥削对比，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
+  if (isHuMode()) modeHint = "单挑演示：GTO vs 剥削一对一，自动明牌演示（CFR1326 单挑策略）。";
+  else if (isDualMode()) modeHint = "GTO vs 剥削对比，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
   else if (isGtoHeroMode()) modeHint = "GTO 模式，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
   else if (state.heroMode === "exploit") modeHint = "剥削模式，点击「开始持续模拟」自动跑局并累计长期 BB/100。";
   else if (state.gameMode === "study") modeHint = "教学模式已开启：全明牌并显示实时胜率。";
   state.message = `${modeHint} 点击“下一手牌”开始。`;
   renderSimPanel();
   render();
+  if (isHuMode()) startHuDemoIfReady();
 }
 
 function beginHand() {
@@ -1520,12 +1589,13 @@ function render(message = "") {
   els.dealerLabel.textContent = state.players[state.dealerIndex]?.position === "D" ? "D" : "D";
 
   let profit = hero().stack - state.initialStack;
-  if (isDualMode()) {
+  if (isHuBattleMode()) {
     const gtoP = playerByAiType("gto");
     const exploitP = playerByAiType("exploit");
     const gtoDelta = gtoP ? gtoP.stack - state.initialStack : 0;
     const exploitDelta = exploitP ? exploitP.stack - state.initialStack : 0;
-    els.profit.textContent = `GTO ${gtoDelta > 0 ? "+" : ""}${gtoDelta} · 剥削 ${exploitDelta > 0 ? "+" : ""}${exploitDelta}`;
+    const prefix = isHuMode() ? "单挑 " : "";
+    els.profit.textContent = `${prefix}GTO ${gtoDelta > 0 ? "+" : ""}${gtoDelta} · 剥削 ${exploitDelta > 0 ? "+" : ""}${exploitDelta}`;
     els.profit.closest(".metric").classList.toggle("positive", gtoDelta + exploitDelta > 0);
     els.profit.closest(".metric").classList.toggle("negative", gtoDelta + exploitDelta < 0);
   } else {
@@ -1550,15 +1620,16 @@ function render(message = "") {
   els.newHandBtn.disabled = state.active || state.simAutoRunning;
   els.stackSelect.disabled = state.active || state.simAutoRunning;
   els.blindSelect.disabled = state.active || state.simAutoRunning;
-  els.playerCountSelect.disabled = state.active || state.simAutoRunning;
+  els.playerCountSelect.disabled = isHuMode() || state.active || state.simAutoRunning;
   els.modeSelect.disabled = state.active || state.simAutoRunning;
   els.heroModeSelect.disabled = state.active || state.simAutoRunning;
   els.gtoSpeedSelect.disabled = state.active || state.simAutoRunning;
   els.runTwiceSelect.disabled = state.active || state.simAutoRunning;
   els.simToggleBtn.disabled = !isAutoSimMode();
   els.actionLog.innerHTML = state.actionLog.map((line) => `<div>${line}</div>`).join("") || "<div>暂无行动</div>";
-  if (isDualMode()) {
-    els.heroRead.textContent = `${state.gtoStats.lastReason || "GTO"} | ${state.exploitStats.lastReason || "剥削"}`;
+  if (isHuBattleMode()) {
+    const tag = isHuMode() ? "单挑 · " : "";
+    els.heroRead.textContent = `${tag}${state.gtoStats.lastReason || "GTO"} | ${state.exploitStats.lastReason || "剥削"}`;
   } else if (isGtoHeroMode()) {
     els.heroRead.textContent = state.gtoStats.lastReason || "GTO 决策中";
   } else if (state.heroMode === "exploit") {
@@ -1953,6 +2024,10 @@ function heroAction(decision) {
 function aiAction(player, decision) {
   if (!state.active || !canAct(player) || !isAiPlayer(player)) return;
   if (player.isHero) state.awaitHero = false;
+  if (isHuMode() && state.simAutoRunning) {
+    state.simCommentary = buildProCommentary(player, decision);
+    renderSimCommentary();
+  }
   applyAction(player, decision);
   state.actionIndex = nextIndex(state.actionIndex, (candidate) => canAct(candidate));
   render();
@@ -2311,7 +2386,10 @@ els.newHandBtn.addEventListener("click", beginHand);
 els.heroModeSelect.addEventListener("change", () => {
   if (state.active || state.simAutoRunning) return;
   state.heroMode = els.heroModeSelect.value;
+  applyHuModeSettings();
+  if (!isHuMode()) state.playerCount = Number(els.playerCountSelect.value);
   state.players = makePlayers(state.initialStack);
+  resetSimStats();
   if (hero()) hero().name = heroDisplayName();
   if (isManualMode()) stopSimAuto("");
   renderSimPanel();
@@ -2320,8 +2398,10 @@ els.heroModeSelect.addEventListener("change", () => {
     gto: "已切换为 GTO，点击「开始持续模拟」自动跑局。",
     exploit: "已切换为剥削，点击「开始持续模拟」自动跑局。",
     dual: "已切换为 GTO vs 剥削对比，点击「开始持续模拟」自动跑局。",
+    hu: "已切换为单挑演示，将自动开局（GTO vs 剥削 · 明牌 · CFR1326）。",
   };
   render(hints[state.heroMode] || hints.manual);
+  if (isHuMode()) startHuDemoIfReady();
 });
 els.gtoSpeedSelect.addEventListener("change", () => {
   if (state.simAutoRunning) return;
