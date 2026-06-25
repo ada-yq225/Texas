@@ -2,6 +2,10 @@
  * Bridges offline CFR+ (8-bucket + full 1326-combo) into live solver decisions.
  */
 const CfrBridge = (() => {
+  function isHeadsUp(ctx) {
+    return ctx.activePlayers().length === 2;
+  }
+
   function heroComboId(player) {
     if (typeof ComboIndex !== "undefined" && player.hand.length === 2) {
       const id = ComboIndex.fromHand(player.hand);
@@ -88,8 +92,21 @@ const CfrBridge = (() => {
     return cfrToDecision(action, player, ctx, `CFR1326 ${subgameKey}/${boardKey}`);
   }
 
+  function preflopRaiseTarget(player, ctx, action) {
+    const facing = ctx.raisesThisRound > 0 || ctx.currentBet > ctx.bigBlind;
+    if (action === "jam") return ctx.maxTargetFor(player);
+    if (!facing) {
+      if (action === "raise22" || action === "raise") return ctx.roundToBlind(ctx.bigBlind * 2.2);
+      if (action === "raise30") return ctx.roundToBlind(ctx.bigBlind * 3);
+      if (action === "raise45") return ctx.roundToBlind(ctx.bigBlind * 4.5);
+    }
+    const mult = ctx.raisesThisRound >= 3 ? 2.2 : ctx.raisesThisRound >= 2 ? 2.5 : 3;
+    return ctx.roundToBlind(GtoCore.clamp(ctx.currentBet * mult, ctx.minTargetFor(player), ctx.maxTargetFor(player)));
+  }
+
   function tryFullPreflop(player, ctx) {
     if (typeof CfrFullLoader === "undefined" || !CfrFullLoader.isReady()) return null;
+    if (!isHeadsUp(ctx)) return null;
     const comboId = heroComboId(player);
     if (comboId == null) return null;
 
@@ -103,20 +120,18 @@ const CfrBridge = (() => {
     });
     if (!action) return null;
 
-    if (action === "fold") return { type: "fold", reason: `CFR1326 preflop · #${comboId} fold` };
-    if (action === "call") return { type: "call", reason: `CFR1326 preflop · #${comboId} call` };
-    if (action === "raise" || action === "raise22") {
-      return { type: "raise", target: ctx.roundToBlind(ctx.bigBlind * 2.2), label: "CFR+ RFI", reason: `CFR1326 · #${comboId} open 2.2x` };
-    }
-    if (action === "raise30" || action === "raise45") {
-      const mult = action === "raise30" ? 3 : 4.5;
-      return { type: "raise", target: ctx.roundToBlind(ctx.bigBlind * mult), label: "CFR+ RFI", reason: `CFR1326 · #${comboId} open ${mult}x` };
-    }
-    if (action === "jam") {
-      return { type: "raise", target: ctx.maxTargetFor(player), label: "CFR+ Jam", reason: `CFR1326 · #${comboId} jam` };
-    }
-    if (action === "raise") {
-      return { type: "raise", target: ctx.roundToBlind(ctx.currentBet * 3.2), label: "CFR+ 3Bet", reason: `CFR1326 · #${comboId} 3bet` };
+    if (action === "fold") return { type: "fold", reason: `CFR1326 HU preflop · #${comboId} fold` };
+    if (action === "call") return { type: "call", reason: `CFR1326 HU preflop · #${comboId} call` };
+    if (action === "raise" || action === "raise22" || action === "raise30" || action === "raise45" || action === "jam") {
+      const facing = ctx.raisesThisRound > 0;
+      const label = !facing ? "CFR+ RFI" : ctx.raisesThisRound >= 2 ? "CFR+ 4Bet" : "CFR+ 3Bet";
+      return {
+        type: "raise",
+        target: preflopRaiseTarget(player, ctx, action),
+        label,
+        reason: `CFR1326 HU · #${comboId} ${action}`,
+        cfr: true,
+      };
     }
     return null;
   }
@@ -147,6 +162,7 @@ const CfrBridge = (() => {
   }
 
   function tryPostflop(player, ctx, profile) {
+    if (!isHeadsUp(ctx)) return null;
     return tryFullPostflop(player, ctx, profile) || tryBucketPostflop(player, ctx, profile);
   }
 
@@ -154,5 +170,5 @@ const CfrBridge = (() => {
     return tryFullPreflop(player, ctx);
   }
 
-  return { tryPostflop, tryPreflopHu, heroBucket, heroComboId };
+  return { tryPostflop, tryPreflopHu, isHeadsUp, heroBucket, heroComboId };
 })();

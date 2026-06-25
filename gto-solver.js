@@ -146,6 +146,22 @@ const GtoSolver = (() => {
     return GtoCharts.rangeWeights("rfi:CO", "raise");
   }
 
+  function multiwayCount(ctx) {
+    return Math.max(0, ctx.activePlayers().length - 2);
+  }
+
+  function applyMultiwayPreflop(action, key, seed, spot, ctx) {
+    const mw = multiwayCount(ctx);
+    if (mw <= 0 || action !== "raise") return action;
+    const pct = GtoCore.HAND_PERCENTILE.get(key) || 0.5;
+    const tighten = mw * 0.05;
+    const gate = spot.startsWith("rfi:") ? 0.52 + tighten : 0.58 + tighten;
+    if (pct < gate && GtoCore.pickAction(`${seed}:mw`, GtoCore.freqs(0.62, 0.28, 0.1)) !== "raise") {
+      return spot.startsWith("rfi:") ? "fold" : "call";
+    }
+    return action;
+  }
+
   function decidePreflop(player, ctx) {
     const cfrDecision = CfrBridge.tryPreflopHu(player, ctx);
     if (cfrDecision) return cfrDecision;
@@ -154,7 +170,8 @@ const GtoSolver = (() => {
     const spot = GtoCharts.spotFor(player, ctx);
     const f = GtoCharts.frequencies(spot, key);
     const seed = `pf:${ctx.handNumber}:${player.id}:${key}:${spot}:${ctx.raisesThisRound}`;
-    const action = GtoCore.pickAction(seed, f);
+    let action = GtoCore.pickAction(seed, f);
+    action = applyMultiwayPreflop(action, key, seed, spot, ctx);
     const call = ctx.callAmount(player);
     const canRaise = player.stack > call + ctx.minRaise;
 
@@ -209,14 +226,19 @@ const GtoSolver = (() => {
     const mdf = GtoCore.mdf(call, ctx.pot);
     const spr = GtoCore.spr(player, ctx);
     const canRaise = player.stack > call + ctx.minRaise;
-    const multi = (ctx.activePlayers().length - 2) * 0.045;
+    const mw = multiwayCount(ctx);
+    const multi = mw * 0.065;
 
     const defendEq = po * (ctx.streetIndex >= 3 ? 0.98 : 0.94) - multi + blockers * 0.5;
+    if (mw >= 2 && equity < po * 1.08 + 0.04) {
+      return { type: "fold", reason: `fold · MW${ctx.activePlayers().length} 收紧防守 · eq ${(equity * 100).toFixed(0)}%` };
+    }
     if (equity < defendEq && GtoCore.pickAction(`${seed}:fold`, GtoCore.freqs(0.92, 0.08)) === "fold") {
       return { type: "fold", reason: `fold · eq ${(equity * 100).toFixed(0)}% < need ${(defendEq * 100).toFixed(0)}% · MDF ${(mdf * 100).toFixed(0)}%` };
     }
 
-    const raiseFreq = made.power >= 7 && equity > 0.7 ? 0.38 : equity > 0.28 && equity < 0.45 ? 0.12 : 0;
+    let raiseFreq = made.power >= 7 && equity > 0.7 ? 0.38 : equity > 0.28 && equity < 0.45 ? 0.12 : 0;
+    if (mw >= 1) raiseFreq *= 0.45;
     if (canRaise && spr > 0.75 && GtoCore.pickAction(`${seed}:xr`, GtoCore.freqs(1 - raiseFreq, 0, raiseFreq)) === "raise") {
       const frac = pickSize(profile.turn?.sizes || [[0.66, 1]], `${seed}:rsize`);
       return {
@@ -243,11 +265,11 @@ const GtoSolver = (() => {
     if (street === 1) {
       const node = tree.flop[boardInfo.cat] || tree.flop.dry_high;
       let betFreq = wasAgg ? node.cbet : node.donk || 0;
-      if (multi) betFreq *= 0.58;
+      if (multi) betFreq *= 0.42;
       if (!wasAgg && equity < 0.52) betFreq = node.donk || 0.12;
 
       const isValue = equity > 0.58 || made.power >= 5.5;
-      const isBluff = equity > 0.15 && equity < 0.32 && blockers > 0.06;
+      const isBluff = !multi && equity > 0.15 && equity < 0.32 && blockers > 0.06;
       const checkMid = equity > 0.38 && equity < 0.54;
 
       if (checkMid && !isValue && GtoCore.pickAction(`${seed}:chk`, GtoCore.freqs(node.check, 0, 0)) !== "raise") {
@@ -277,9 +299,9 @@ const GtoSolver = (() => {
     if (street === 2) {
       const node = tree.turn;
       let barrel = wasAgg ? node.barrel : node.probe;
-      if (multi) barrel *= 0.52;
+      if (multi) barrel *= 0.38;
       const polarValue = equity > 0.65 || made.power >= 6;
-      const polarBluff = equity > 0.14 && equity < 0.3;
+      const polarBluff = !multi && equity > 0.14 && equity < 0.3;
       const checkControl = equity > 0.4 && equity < 0.56;
 
       if (checkControl && !polarValue) return { type: "check", reason: `turn check · pot control ${(equity * 100).toFixed(0)}%` };
@@ -295,7 +317,7 @@ const GtoSolver = (() => {
     const valueBet = equity > node.value || made.power >= 6.5;
     const alpha = GtoCore.alpha(ctx.bigBlind * 3, ctx.pot);
     const bluffFreq = node.bluffAlpha ? alpha : 0.28;
-    const bluff = equity > 0.12 && equity < 0.28 && blockers > 0.05;
+    const bluff = !multi && equity > 0.12 && equity < 0.28 && blockers > 0.05;
 
     if (valueBet && player.stack > ctx.bigBlind) {
       const frac = pickSize(node.sizes, `${seed}:vsize`);

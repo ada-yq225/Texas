@@ -842,14 +842,16 @@ function renderSimPanel() {
     }
   } else if (isGtoHeroMode()) {
     const bb100 = gtoBb;
+    const rebuyNote = state.gtoStats.rebuys > 0 ? `重买 ${state.gtoStats.rebuys} 次 · ` : "";
+    const mwNote = state.playerCount > 2 ? "多人桌走 6-max 图表（CFR1326 仅单挑池）· " : "";
     if (state.gtoStats.handsCompleted < 8) {
-      els.simInsight.textContent = "样本较少，继续模拟可观察职业 GTO solver 的长期 BB/100 曲线。";
+      els.simInsight.textContent = `${mwNote}样本较少，继续模拟可观察 GTO 长期 BB/100。`;
     } else if (bb100 > 4) {
-      els.simInsight.textContent = `长期 BB/100 +${bb100.toFixed(1)}：职业 solver 压制桌面。${state.gtoStats.lastReason}`;
+      els.simInsight.textContent = `${rebuyNote}长期 BB/100 +${bb100.toFixed(1)}：GTO 压制风格桌。${state.gtoStats.lastReason}`;
     } else if (bb100 < -4) {
-      els.simInsight.textContent = `长期 BB/100 ${bb100.toFixed(1)}：风格桌反制 solver。${state.gtoStats.lastReason}`;
+      els.simInsight.textContent = `${rebuyNote}${mwNote}长期 BB/100 ${bb100.toFixed(1)}：建议新牌局重置样本后再跑。${state.gtoStats.lastReason}`;
     } else {
-      els.simInsight.textContent = `长期 BB/100 ${bb100 >= 0 ? "+" : ""}${bb100.toFixed(1)}：接近均衡波动。${state.gtoStats.lastReason}`;
+      els.simInsight.textContent = `${rebuyNote}长期 BB/100 ${bb100 >= 0 ? "+" : ""}${bb100.toFixed(1)}：接近均衡波动。${state.gtoStats.lastReason}`;
     }
   } else {
     const bb100 = exploitBb;
